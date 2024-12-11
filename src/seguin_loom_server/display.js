@@ -324,11 +324,18 @@ class LoomClient {
     displayPick() {
         var repeatNumberElt = document.getElementById("repeat_number")
         var pickNumberElt = document.getElementById("pick_number")
+        var totalPicksElt = document.getElementById("total_picks")
+        var pickNumber = ""
+        var totalPicks = "?"
+        var repeatNumber = ""
         if (this.weavingPattern) {
-            pickNumberElt.textContent = this.weavingPattern.pick_number + " of " + this.weavingPattern.picks.length + "; repeat " + this.weavingPattern.repeat_number
-        } else {
-            pickNumberElt.textContent = " "
+            pickNumber = this.weavingPattern.pick_number
+            repeatNumber = this.weavingPattern.repeat_number
+            totalPicks = this.weavingPattern.picks.length
         }
+        pickNumberElt.value = pickNumber
+        repeatNumberElt.value = repeatNumber
+        totalPicksElt.textContent = ` of ${totalPicks}; repeat `
     }
 
     /*
@@ -402,10 +409,12 @@ class LoomClient {
     Send the "jump_to_pick" command.
     */
     async handleJumpToPick(event) {
-        var inputElt = document.getElementById("jump_to_pick")
-        var message = { "type": "jump_to_pick", "pick_number": Number(inputElt.value) }
+        var pickNumberElt = document.getElementById("pick_number")
+        var repeatNumberElt = document.getElementById("repeat_number")
+        var pickNumber = Number(pickNumberElt.value)
+        var repeatNumber = Number(repeatNumberElt.value)
+        var message = { "type": "jump_to_pick", "pick_number": pickNumber, "repeat_number": repeatNumber }
         await this.ws.send(JSON.stringify(message))
-        inputElt.value = ""
         event.preventDefault()
     }
 

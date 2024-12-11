@@ -38,14 +38,11 @@
         <label id="shafts_raised"/>
     </div>
 
-    <div>
-        <label>Pick </label><label id="pick_number"/>
-        <label id="repeat_number"/>
-    </div>      
-
     <form action="" id="jump_to_pick_form">
-        <label>Jump to pick</label>
-        <input size="5" id="jump_to_pick" autocomplete="off" title="Specify the pick number for the next shed."/>
+        <label>Pick</label>
+        <input size="5" id="pick_number" autocomplete="off" title="Specify the pick number to jump to."/>
+        <label id="total_picks"></label>
+        <input size="5" id="repeat_number" autocomplete="off" title="Specify the repeat number to jump to."/>
         <button>Jump</button>
     </form>
 

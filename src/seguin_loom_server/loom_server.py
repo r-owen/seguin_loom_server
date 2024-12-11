@@ -271,14 +271,16 @@ class LoomServer:
             print(f"Failed to read pattern {filename!r}: {e!r}")
 
     async def cmd_jump_to_pick(self, command: SimpleNamespace) -> None:
-        jump_to_pick_number = command.pick_number
+        new_pick_number = command.pick_number
+        new_repeat_number = command.repeat_number
         if self.current_pattern is None:
             raise CommandError("Cannot jump to a pick: no pattern")
         try:
-            self.current_pattern.set_current_pick_number(jump_to_pick_number)
+            self.current_pattern.set_current_pick_number(new_pick_number)
+            self.current_pattern.repeat_number = new_repeat_number
         except IndexError:
             raise CommandError(
-                f"Invalid jump pick number {jump_to_pick_number} < 0 or "
+                f"Invalid jump pick number {new_pick_number} < 0 or "
                 f"> {len(self.current_pattern.picks)}"
             )
         if self.current_pattern.pick_number > 0:
