@@ -188,6 +188,9 @@ class LoomClient {
         var patternMenu = document.getElementById("pattern_menu")
         patternMenu.addEventListener("change", this.handlePatternMenu.bind(this))
 
+        var pickColorElt = document.getElementById("pick_color")
+        pickColorElt.addEventListener("click", this.handlePickColor.bind(this))
+
         var weaveDirectionElt = document.getElementById("weave_direction")
         weaveDirectionElt.addEventListener("click", this.handleWeaveDirection.bind(this))
     }
@@ -312,14 +315,7 @@ class LoomClient {
 
 
     /*
-    Display the current and next pick.
-    The current pick is read from global ``weavingPattern``, if defined, else 0.
-    The next pick is an argument (since it is not stored in a global).
-    
-    Parameters
-    ----------
-    next_pick : int
-      The (1-based) number of the next pick
+    Display the current pick and repeat.
     */
     displayPick() {
         var repeatNumberElt = document.getElementById("repeat_number")
@@ -429,6 +425,16 @@ class LoomClient {
         await this.ws.send(JSON.stringify(message))
         inputElt.value = ""
         event.preventDefault()
+    }
+
+    /*
+    Handle pick_color button clicks.
+    
+    Send the pick_color command to the loom server.
+    */
+    async handlePickColor(event) {
+        var message = { "type": "oobcommand", "command": "n" }
+        await this.ws.send(JSON.stringify(message))
     }
 
     /*

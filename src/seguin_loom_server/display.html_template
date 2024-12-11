@@ -28,8 +28,8 @@
         <div><canvas id="canvas"/></div>
         <div class="flex-container" id="pattern_controls_grid">
             <div id="pick_color_spacer"></div>
-            <div id="pick_color" title="Pick color"></div>
-            <div><button class="button" id="weave_direction" title="Click to change the weave direction">?</button></div>
+            <div><button class="button" id="pick_color" title="Pick color; click to go to next pick"></button></div>
+            <div><button class="button" id="weave_direction" title="Weave direction; click to change direction">?</button></div>
         </div>
     </div>
 
@@ -41,8 +41,8 @@
     <form action="" id="jump_to_pick_form">
         <label>Pick</label>
         <input size="5" id="pick_number" autocomplete="off" title="Specify the pick number to jump to."/>
-        <label id="total_picks"></label>
-        <input size="5" id="repeat_number" autocomplete="off" title="Specify the repeat number to jump to."/>
+        <label id="total_picks"> of ?: repeat </label>
+        <input size="3" id="repeat_number" autocomplete="off" title="Specify the repeat number to jump to."/>
         <button>Jump</button>
     </form>
 
