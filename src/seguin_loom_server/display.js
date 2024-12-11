@@ -182,8 +182,17 @@ class LoomClient {
         var jumpToPickForm = document.getElementById("jump_to_pick_form")
         jumpToPickForm.addEventListener("submit", this.handleJumpToPick.bind(this))
 
+        var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
+        jumpToPickResetElt.addEventListener("click", this.handleJumpToPickReset.bind(this))
+
         var oobCommandForm = document.getElementById("oob_command_form")
         oobCommandForm.addEventListener("submit", this.handleOutOfBandCommand.bind(this))
+
+        var pickNumberElt = document.getElementById("pick_number")
+        pickNumberElt.addEventListener("input", this.handleJumpInput.bind(this))
+
+        var repeatNumberElt = document.getElementById("repeat_number")
+        repeatNumberElt.addEventListener("input", this.handleJumpInput.bind(this))
 
         var patternMenu = document.getElementById("pattern_menu")
         patternMenu.addEventListener("change", this.handlePatternMenu.bind(this))
@@ -321,6 +330,7 @@ class LoomClient {
         var repeatNumberElt = document.getElementById("repeat_number")
         var pickNumberElt = document.getElementById("pick_number")
         var totalPicksElt = document.getElementById("total_picks")
+        resetPickAndRepeatNumber()
         var pickNumber = ""
         var totalPicks = "?"
         var repeatNumber = ""
@@ -400,7 +410,7 @@ class LoomClient {
 
 
     /*
-    Handle values from the "jump_to_pick" input element.
+    Handle jump_to_pick form submit.
     
     Send the "jump_to_pick" command.
     */
@@ -412,6 +422,56 @@ class LoomClient {
         var message = { "type": "jump_to_pick", "pick_number": pickNumber, "repeat_number": repeatNumber }
         await this.ws.send(JSON.stringify(message))
         event.preventDefault()
+    }
+
+    /*
+    Handle user editing of pick_number and repeat_number.
+    */
+    async handleJumpInput(event) {
+        var jumpToPickSubmitElt = document.getElementById("jump_to_pick_submit")
+        var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
+        var pickNumberElt = document.getElementById("pick_number")
+        var repeatNumberElt = document.getElementById("repeat_number")
+        if (this.weavingPattern) {
+            var disable = true
+            if (pickNumberElt.value != this.weavingPattern.pick_number) {
+                pickNumberElt.style.backgroundColor = "pink"
+                disable = false
+            } else {
+                pickNumberElt.style.backgroundColor = "white"
+            }
+            if (repeatNumberElt.value != this.weavingPattern.repeat_number) {
+                console.log("repeat", repeatNumberElt.value, this.weavingPattern.repeat_number)
+                repeatNumberElt.style.backgroundColor = "pink"
+                disable = false
+            } else {
+                repeatNumberElt.style.backgroundColor = "white"
+            }
+            jumpToPickSubmitElt.disabled = disable
+            jumpToPickResetElt.disabled = disable
+        } else {
+            resetPickAndRepeatNumber()
+        }
+        event.preventDefault()
+    }
+
+    /*
+    Handle Reset buttin in the "jump_to_pick" form.
+    
+    Reset pick number and repeat number to current values.
+    */
+    async handleJumpToPickReset(event) {
+        var pickNumberElt = document.getElementById("pick_number")
+        var repeatNumberElt = document.getElementById("repeat_number")
+        var pickNumber = ""
+        var repeatNumber = ""
+        if (this.weavingPattern) {
+            var pickNumber = this.weavingPattern.pick_number
+            var repeatNumber = this.weavingPattern.repeat_number
+        }
+        pickNumberElt.value = pickNumber
+        repeatNumberElt.value = repeatNumber
+        resetPickAndRepeatNumber()
     }
 
     /*
@@ -479,6 +539,18 @@ function readTextFile(file) {
 
         reader.readAsText(file)
     })
+}
+
+function resetPickAndRepeatNumber() {
+    var pickNumberElt = document.getElementById("pick_number")
+    var repeatNumberElt = document.getElementById("repeat_number")
+    var jumpToPickSubmitElt = document.getElementById("jump_to_pick_submit")
+    var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
+    jumpToPickSubmitElt.disabled = true
+    jumpToPickResetElt.disabled = true
+    pickNumberElt.style.backgroundColor = "white"
+    repeatNumberElt.style.backgroundColor = "white"
+
 }
 
 loomClient = new LoomClient()
