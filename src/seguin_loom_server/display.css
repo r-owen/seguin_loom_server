@@ -10,11 +10,11 @@ button:hover {
 
 /* Pattern select area at top */
 
-#pattern_select_grid {
+div.flex-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    align-items: center;
+    align-items: start;
     gap: 5px;
 }
 
@@ -27,19 +27,11 @@ button:hover {
 /* Pattern canvas and the buttons to the right */
 
 #pattern_display_grid {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
     align-items: center;
-    gap: 5px;
 }
 
 #pattern_controls_grid {
-    display: flex;
     flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: left;
-    gap: 5px;
 }
 
 #canvas {

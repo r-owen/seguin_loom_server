@@ -9,14 +9,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
-<body id="body">
+<body>
     <div class="flex-container" id="pattern_select_grid">
-        <div><label>Pattern</label>
-        <select name="pattern_menu" id="pattern_menu" title="Select a pattern to weave.&#10;Clear Menu clears all names except the one in use.">
-            <option></option>
-            <hr>
-            <option>Clear Menu</option>
-        </select></div>
+        <div>
+            <label>Pattern</label>
+            <select name="pattern_menu" id="pattern_menu" title="Select a pattern to weave.&#10;Clear Menu clears all names except the one in use.">
+                <option></option>
+                <hr>
+                <option>Clear Recents</option>
+            </select>
+        </div>
         <form class="upload-form">
             <input type="file" id="file_input" multiple accept=".wif,.dtx" style="display:none;">
             <input type="button" value="Upload"  id="upload_patterns" title="Upload .wif or .dtx weaving files.&#10;You can also drag on drop files on the window." onclick="document.getElementById('file_input').click()"/>
@@ -25,7 +27,9 @@
     <p/>
 
     <div class="flex-container" id="pattern_display_grid">
-        <div><canvas id="canvas"/></div>
+        <div>
+            <canvas id="canvas"/>
+        </div>
         <div class="flex-container" id="pattern_controls_grid">
             <div id="goto_next_pick_spacer"></div>
             <div><button type="button" id="goto_next_pick" title="Pick color; click to go to next pick"></button></div>
@@ -33,22 +37,24 @@
         </div>
     </div>
 
-    <div>
-        <label>Shafts raised </label>
+    <div class="flex-container">
+        <label>Shafts raised</label>
         <label id="shafts_raised"/>
     </div>
 
     <form action="" id="jump_to_pick_form">
-        <label>Pick</label>
-        <input size="5" id="pick_number" inputmode="decimal" title="Specify the pick number to jump to."/>
-        <label id="total_picks"> of ?: repeat </label>
-        <input size="3" id="repeat_number" inputmode="decimal" title="Specify the repeat number to jump to."/>
-        <button type="submit" id="jump_to_pick_submit">Jump</button>
-        <button type="button" id="jump_to_pick_reset">Reset</button>
+        <div class="flex-container">
+            <label>Pick</label>
+            <input size="5" id="pick_number" inputmode="decimal" title="Specify the pick number to jump to."/>
+            <label id="total_picks">of ?: repeat</label>
+            <input size="3" id="repeat_number" inputmode="decimal" title="Specify the repeat number to jump to."/>
+            <button type="submit" id="jump_to_pick_submit">Jump</button>
+            <button type="button" id="jump_to_pick_reset">Reset</button>
+        </div>
     </form>
 
-    <div>
-        <label>Status: </label>
+    <div class="flex-container">
+        <label>Status:</label>
         <label id="status">disconnected</label>
     </div>
 
@@ -66,7 +72,9 @@
         <button type="submit">Submit</button>
     </form>
 
-    <div><label>Message from server: </label><label id='message'/></div>
+    <div class="flex-container">
+        <label>Message from server: </label>
+        <label id='message'/>
     </div>
     <script>
         {display_js}

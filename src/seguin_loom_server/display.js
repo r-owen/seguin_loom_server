@@ -88,7 +88,7 @@ class ReducedPattern {
                 continue
             }
             if (pick >= this.pick_number) {
-                ctx.globalAlpha = 0.5
+                ctx.globalAlpha = 0.3
             } else {
                 ctx.globalAlpha = 1.0
             }
@@ -159,7 +159,7 @@ class LoomClient {
         this.ws.onclose = handleWebsocketClosed
 
         // Assign event handlers for file drag-and-drop
-        const dropAreaElt = document.getElementById("body");
+        const dropAreaElt = document.body;
 
         ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
             dropAreaElt.addEventListener(eventName, preventDefaults)
@@ -382,7 +382,7 @@ class LoomClient {
     async handlePatternMenu(event) {
         var patternMenu = document.getElementById("pattern_menu")
         var message
-        if (patternMenu.value == "Clear Menu") {
+        if (patternMenu.value == "Clear Recents") {
             message = { "type": "clear_pattern_names" }
         } else {
             message = { "type": "select_pattern", "name": patternMenu.value }
