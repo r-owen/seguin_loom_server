@@ -7,9 +7,9 @@ import dataclasses
 import enum
 import io
 import json
+import logging
 import pathlib
 import tempfile
-import traceback
 from types import SimpleNamespace, TracebackType
 from typing import Any, Type
 
@@ -19,7 +19,7 @@ from serial_asyncio import open_serial_connection  # type: ignore
 
 from . import client_replies
 from .client_replies import MessageSeverityEnum
-from .loom_constants import BAUD_RATE, TERMINATOR
+from .loom_constants import BAUD_RATE, LOG_NAME, TERMINATOR
 from .mock_loom import MockLoom
 from .mock_streams import StreamReaderType, StreamWriterType
 from .pattern_database import PatternDatabase
@@ -49,17 +49,6 @@ class CommandError(Exception):
     pass
 
 
-async def close_websocket(
-    ws: WebSocket, code: CloseCode = CloseCode.NORMAL, reason: str = ""
-) -> None:
-    """Close a websocket using best effort and a short timeout."""
-    try:
-        async with asyncio.timeout(0.1):
-            await ws.close(code, reason)
-    except Exception as e:
-        print(f"Failed to close websocket: {e!r}")
-
-
 class LoomServer:
     """Communicate with the client software and the loom.
 
@@ -71,11 +60,13 @@ class LoomServer:
     serial_port : str
         The name of the serial port, e.g. "/dev/tty0".
         If the name is "mock" then use a mock loom.
+    translation_dict : dict[str, str]
+        Translation dict.
     reset_db : bool
         If True, delete the old database and create a new one.
         A rescue aid, in case the database gets corrupted.
     verbose : bool
-        If True, print diagnostic information to stdout.
+        If True, log diagnostic information.
     db_path : pathlib.Path
         Path to pattern database.
         Intended for unit tests, to avoid stomping on the real database.
@@ -84,15 +75,18 @@ class LoomServer:
     def __init__(
         self,
         serial_port: str,
+        translation_dict: dict[str, str],
         reset_db: bool,
         verbose: bool,
         db_path: pathlib.Path = DEFAULT_DATABASE_PATH,
     ) -> None:
+        self.log = logging.getLogger(LOG_NAME)
         if verbose:
-            print(
+            self.log.info(
                 f"LoomServer({serial_port=!r}, {reset_db=!r}, {verbose=!r}, {db_path=!r})"
             )
         self.serial_port = serial_port
+        self.translation_dict = translation_dict
         self.websocket: WebSocket | None = None
         self.pattern_db = PatternDatabase(db_path)
         self.verbose = verbose
@@ -164,6 +158,16 @@ class LoomServer:
             or self.loom_reader.at_eof()
         )
 
+    async def close_websocket(
+        self, ws: WebSocket, code: CloseCode = CloseCode.NORMAL, reason: str = ""
+    ) -> None:
+        """Close a websocket using best effort and a short timeout."""
+        try:
+            async with asyncio.timeout(0.1):
+                await ws.close(code, reason)
+        except Exception as e:
+            self.log.warning(f"LoomServer: failed to close websocket: {e!r}")
+
     async def connect_to_loom(self) -> None:
         """Connect to the loom.
 
@@ -188,7 +192,7 @@ class LoomServer:
             await self.report_loom_connection_state()
         except Exception as e:
             self.loom_connecting = False
-            await self.report_loom_connection_state(reason=f"Connection failed: {e!r}")
+            await self.report_loom_connection_state(reason=str(e))
             raise
         finally:
             self.loom_connecting = False
@@ -206,7 +210,9 @@ class LoomServer:
             Connection to the client.
         """
         if self.client_connected:
-            print("A client was already connected; closing that connection")
+            self.log.info(
+                "LoomServer: a client was already connected; closing that connection"
+            )
             await self.disconnect_client()
         await websocket.accept()
         self.websocket = websocket
@@ -218,8 +224,9 @@ class LoomServer:
                 # Note: connect_to_loom already reported the
                 # (lack of) connection state, including the reason.
                 # But log it here.
-                print(f"run_client failed to reconnect to the loom: {e!r}")
-                traceback.print_exc()
+                self.log.exception(
+                    f"LoomServer: failed to reconnect to the loom: {e!r}"
+                )
         await self.done_task
 
     async def disconnect_client(self, cancel_read_client_loop: bool = True) -> None:
@@ -227,8 +234,10 @@ class LoomServer:
         websocket = self.websocket
         self.websocket = None
         if websocket is not None:
-            await close_websocket(
-                websocket, code=CloseCode.GOING_AWAY, reason="another client barged in"
+            await self.close_websocket(
+                websocket,
+                code=CloseCode.GOING_AWAY,
+                reason=self.t("another client took control"),
             )
 
     async def disconnect_from_loom(self) -> None:
@@ -266,7 +275,7 @@ class LoomServer:
             raise RuntimeError("Cannot write to the loom: no connection.")
         cmd_bytes = cmd.encode() + TERMINATOR
         if self.verbose:
-            print(f"Sending command to loom: {cmd_bytes!r}")
+            self.log.info(f"LoomServer: sending command to loom: {cmd_bytes!r}")
         self.loom_writer.write(cmd_bytes)
         await self.loom_writer.drain()
 
@@ -297,8 +306,8 @@ class LoomServer:
         filename = command.name
         try:
             if self.verbose:
-                print(
-                    f"Read weaving pattern {filename!r}: data={command.data[0:40]!r}...",
+                self.log.info(
+                    f"LoomServer: read weaving pattern {filename!r}: data={command.data[0:40]!r}...",
                 )
             if filename.lower().endswith(".dtx"):
                 with io.StringIO(command.data) as dtx_file:
@@ -340,15 +349,18 @@ class LoomServer:
         new_pick_number = command.pick_number
         new_repeat_number = command.repeat_number
         if self.current_pattern is None:
-            raise CommandError("Cannot jump to a pick: no pattern")
+            raise CommandError(
+                self.t("cannot jump to a pick") + ": " + self.t("no pattern")
+            )
         try:
             self.current_pattern.set_current_pick_number(new_pick_number)
             self.current_pattern.repeat_number = new_repeat_number
         except IndexError:
-            raise CommandError(
-                f"Invalid jump pick number {new_pick_number} < 0 or "
-                f"> {len(self.current_pattern.picks)}"
-            )
+            if new_pick_number < 0:
+                reason = f": {new_pick_number} < 0"
+            else:
+                reason = f": {new_pick_number} > {len(self.current_pattern.picks)}"
+            raise CommandError(self.t("invalid pick number") + reason)
         if self.current_pattern.pick_number > 0:
             pick = self.current_pattern.get_current_pick()
             await self.command_pick(pick)
@@ -370,6 +382,180 @@ class LoomServer:
     async def cmd_oobcommand(self, command: SimpleNamespace) -> None:
         await self.command_loom(f"=#{command.command}")
 
+    async def read_client_loop(self) -> None:
+        """Read and process commands from the client."""
+        # report loom connection state
+        # and (if connected) request loom status
+        try:
+            self.client_connected = True
+            await self.report_loom_connection_state()
+            await self.report_pattern_names()
+            await self.report_weave_direction()
+            await self.report_current_pattern()
+            await self.report_pick_number()
+            if self.loom_connected:
+                # request loom status
+                await self.command_loom("=Q")
+            else:
+                await self.connect_to_loom()
+            while self.client_connected:
+                assert self.websocket is not None
+                try:
+                    data = await self.websocket.receive_json()
+                except json.JSONDecodeError:
+                    self.log.info(
+                        "LoomServer: ignoring invalid command: not json-encoded"
+                    )
+
+                # Parse the command
+                try:
+                    cmd_type = data.get("type")
+                    if cmd_type is None:
+                        await self.report_command_problem(
+                            message=f"Invalid command; no 'type' field: {data!r}",
+                            severity=MessageSeverityEnum.WARNING,
+                        )
+                        continue
+                    command = SimpleNamespace(**data)
+                    if self.verbose:
+                        msg_summary = str(command)
+                        if len(msg_summary) > 80:
+                            msg_summary = msg_summary[0:80] + "..."
+                        self.log.info(f"LoomServer: read command {msg_summary}")
+                    cmd_handler = self.command_dispatch_table.get(cmd_type)
+                except Exception as e:
+                    message = f"command {data} failed: {e!r}"
+                    self.log.exception(f"Loom Server: {message}")
+                    await self.report_command_problem(
+                        message=message,
+                        severity=MessageSeverityEnum.ERROR,
+                    )
+
+                # Execute the command
+                try:
+                    if cmd_handler is None:
+                        await self.report_command_problem(
+                            message=f"Invalid command; unknown type {command.type!r}",
+                            severity=MessageSeverityEnum.ERROR,
+                        )
+                        continue
+                    await cmd_handler(command)
+                except CommandError as e:
+                    await self.report_command_problem(
+                        message=str(e),
+                        severity=MessageSeverityEnum.ERROR,
+                    )
+                except Exception as e:
+                    message = f"command {command} unexpectedly failed: {e!r}"
+                    self.log.exception(f"LoomServer: {message}")
+                    await self.report_command_problem(
+                        message=message,
+                        severity=MessageSeverityEnum.ERROR,
+                    )
+
+        except asyncio.CancelledError:
+            return
+        except WebSocketDisconnect:
+            self.log.info("LoomServer: client disconnected")
+            return
+        except Exception as e:
+            self.log.exception(f"LoomServer: bug: client read looop failed: {e!r}")
+            await self.report_command_problem(
+                message="Client read loop failed; try refreshing",
+                severity=MessageSeverityEnum.ERROR,
+            )
+            self.client_connected = False
+            if self.websocket is not None:
+                await self.close_websocket(
+                    self.websocket, code=CloseCode.ERROR, reason=repr(e)
+                )
+
+    async def read_loom_loop(self) -> None:
+        """Read and process replies from the loom."""
+        try:
+            if self.loom_reader is None:
+                raise RuntimeError("No loom reader")
+            while True:
+                reply_bytes = await self.loom_reader.readuntil(TERMINATOR)
+                if self.verbose:
+                    self.log.info(f"LoomServer: read loom reply: {reply_bytes!r}")
+                if not reply_bytes:
+                    return
+                reply = reply_bytes.decode().strip()
+                if len(reply) < 2:
+                    message = f"invalid loom reply {reply!r}: less than 2 chars"
+                    self.log.warning(f"LoomServer: {message}")
+                    await self.report_command_problem(
+                        message=message,
+                        severity=MessageSeverityEnum.WARNING,
+                    )
+                    continue
+                if reply[0] != "=":
+                    message = f"invalid loom reply {reply!r}: no leading '='"
+                    self.log.warning(f"LoomServer: {message}")
+                    await self.report_command_problem(
+                        message=message,
+                        severity=MessageSeverityEnum.WARNING,
+                    )
+                    continue
+                reply_char = reply[1]
+                reply_data = reply[2:]
+                match reply_char:
+                    case "c":
+                        # Actual shafts that are up
+                        pass
+                    case "u":
+                        # Weave direction
+                        # The loom expects a new pick, as a result
+                        if reply_data == "0":
+                            self.weave_forward = True
+                        elif reply_data == "1":
+                            self.weave_forward = False
+                        else:
+                            message = (
+                                f"invalid loom reply {reply!r}: "
+                                "direction must be 0 or 1"
+                            )
+                            self.log.warning(f"LoomServer: {message}")
+                            await self.report_command_problem(
+                                message=message, severity=MessageSeverityEnum.WARNING
+                            )
+                            continue
+                        await self.report_weave_direction()
+                    case "s":
+                        # Loom status (may include a request for the next pick)
+                        state_word = int(reply_data, base=16)
+                        await self.report_loom_state(state_word)
+
+                        # Check for error flag
+                        error_flag = bool(state_word & 0x8)
+                        if error_flag != self.loom_error_flag:
+                            self.loom_error_flag = error_flag
+                            if self.verbose:
+                                self.log.info(
+                                    f"LoomServer: loom error flag changed to {error_flag}"
+                                )
+
+                        pick_wanted = bool(state_word & 0x4)
+                        if pick_wanted and self.current_pattern is not None:
+                            # Command a new pick, if there is one.
+                            new_pick_number = self.increment_pick_number()
+                            if new_pick_number > 0:
+                                pick = self.current_pattern.get_current_pick()
+                                await self.command_pick(pick)
+                            await self.report_pick_number()
+
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            message = f"Server stopped listening to the loom: {e!r}"
+            self.log.exception(f"LoomServer: {message}")
+            await self.report_command_problem(
+                message=message,
+                severity=MessageSeverityEnum.ERROR,
+            )
+            await self.disconnect_from_loom()
+
     async def reply_to_client(self, reply: Any) -> None:
         """Send a reply to the client.
 
@@ -386,14 +572,16 @@ class LoomServer:
                 reply_str = str(reply_dict)
                 if len(reply_str) > 120:
                     reply_str = reply_str[0:120] + "..."
-                print(f"LoomServer reply to client: {reply_str}")
+                self.log.info(f"LoomServer: reply to client: {reply_str}")
             await self.websocket.send_json(reply_dict)
         else:
             if self.verbose:
                 reply_str = str(reply)
                 if len(reply_str) > 120:
                     reply_str = reply_str[0:120] + "..."
-                print(f"Could not send reply {reply_str} to client: not connected")
+                self.log.info(
+                    f"LoomServer: do not send reply {reply_str}; not connected"
+                )
 
     async def report_command_problem(self, message: str, severity: MessageSeverityEnum):
         """Report a CommandProblem to the client."""
@@ -461,181 +649,11 @@ class LoomServer:
         await self.report_current_pattern()
         await self.report_pick_number()
 
-    async def read_client_loop(self) -> None:
-        """Read and process commands from the client."""
-        # report loom connection state
-        # and (if connected) request loom status
-        try:
-            self.client_connected = True
-            await self.report_loom_connection_state()
-            await self.report_pattern_names()
-            await self.report_weave_direction()
-            await self.report_current_pattern()
-            await self.report_pick_number()
-            if self.loom_connected:
-                # request loom status
-                await self.command_loom("=Q")
-            else:
-                await self.connect_to_loom()
-            while self.client_connected:
-                assert self.websocket is not None
-                try:
-                    data = await self.websocket.receive_json()
-                except json.JSONDecodeError:
-                    print("Ingoring invalid command: not json-encoded")
-
-                # Parse the command
-                try:
-                    cmd_type = data.get("type")
-                    if cmd_type is None:
-                        await self.report_command_problem(
-                            message=f"Invalid command; no 'type' field: {data!r}",
-                            severity=MessageSeverityEnum.WARNING,
-                        )
-                        continue
-                    command = SimpleNamespace(**data)
-                    if self.verbose:
-                        msg_summary = str(command)
-                        if len(msg_summary) > 80:
-                            msg_summary = msg_summary[0:80] + "..."
-                        print(f"Read client command {msg_summary}")
-                    cmd_handler = self.command_dispatch_table.get(cmd_type)
-                except Exception as e:
-                    message = f"Client command {data} failed: {e!r}"
-                    print(message)
-                    await self.report_command_problem(
-                        message=message,
-                        severity=MessageSeverityEnum.ERROR,
-                    )
-                    traceback.print_exc()
-
-                # Execute the command
-                try:
-                    if cmd_handler is None:
-                        await self.report_command_problem(
-                            message=f"Invalid command; unknown type {command.type!r}",
-                            severity=MessageSeverityEnum.ERROR,
-                        )
-                        continue
-                    await cmd_handler(command)
-                except CommandError as e:
-                    await self.report_command_problem(
-                        message=f"{e!s}",
-                        severity=MessageSeverityEnum.ERROR,
-                    )
-                except Exception as e:
-                    message = (
-                        f"Client command {command} command unexpectedly failed: {e!r}"
-                    )
-                    print(message)
-                    await self.report_command_problem(
-                        message=message,
-                        severity=MessageSeverityEnum.ERROR,
-                    )
-                    traceback.print_exc()
-
-        except asyncio.CancelledError:
-            return
-        except WebSocketDisconnect:
-            print("Client disconnected")
-            return
-        except Exception as e:
-            print(f"Server bug: client read looop failed: {e!r}")
-            await self.report_command_problem(
-                message="Client read loop failed; try refreshing",
-                severity=MessageSeverityEnum.ERROR,
-            )
-            traceback.print_exc()
-            self.client_connected = False
-            if self.websocket is not None:
-                await close_websocket(
-                    self.websocket, code=CloseCode.ERROR, reason=repr(e)
-                )
-
-    async def read_loom_loop(self) -> None:
-        """Read and process replies from the loom."""
-        try:
-            if self.loom_reader is None:
-                raise RuntimeError("No loom reader")
-            while True:
-                reply_bytes = await self.loom_reader.readuntil(TERMINATOR)
-                if self.verbose:
-                    print(f"Read loom reply: {reply_bytes!r}")
-                if not reply_bytes:
-                    return
-                reply = reply_bytes.decode().strip()
-                if len(reply) < 2:
-                    message = f"Ignoring invalid reply from the loom {reply!r}: less than 2 chars"
-                    print(message)
-                    await self.report_command_problem(
-                        message=message,
-                        severity=MessageSeverityEnum.WARNING,
-                    )
-                    continue
-                if reply[0] != "=":
-                    message = f"Ignoring invalid reply from the loom {reply!r}: no leading '='"
-                    print(message)
-                    await self.report_command_problem(
-                        message=message,
-                        severity=MessageSeverityEnum.WARNING,
-                    )
-                    continue
-                reply_char = reply[1]
-                reply_data = reply[2:]
-                match reply_char:
-                    case "c":
-                        # Actual shafts that are up
-                        pass
-                    case "u":
-                        # Weave direction
-                        # The loom expects a new pick, as a result
-                        if reply_data == "0":
-                            self.weave_forward = True
-                        elif reply_data == "1":
-                            self.weave_forward = False
-                        else:
-                            message = (
-                                f"Ignoring invalid direction reply from loom {reply!r}: "
-                                "direction must be 0 or 1"
-                            )
-                            print(message)
-                            await self.report_command_problem(
-                                message=message, severity=MessageSeverityEnum.WARNING
-                            )
-                            continue
-                        await self.report_weave_direction()
-                    case "s":
-                        # Loom status (may include a request for the next pick)
-                        state_word = int(reply_data, base=16)
-                        await self.report_loom_state(state_word)
-
-                        # Check for error flag
-                        error_flag = bool(state_word & 0x8)
-                        if error_flag != self.loom_error_flag:
-                            self.loom_error_flag = error_flag
-                            if self.verbose:
-                                print(f"Loom error flag changed to {error_flag}")
-
-                        pick_wanted = bool(state_word & 0x4)
-                        if pick_wanted and self.current_pattern is not None:
-                            # Command a new pick, if there is one.
-                            new_pick_number = self.increment_pick_number()
-                            if new_pick_number > 0:
-                                pick = self.current_pattern.get_current_pick()
-                                await self.command_pick(pick)
-                            await self.report_pick_number()
-
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            message = f"Server stopped listening to the loom: {e!r}"
-            print(message)
-            await self.report_command_problem(
-                message=message,
-                severity=MessageSeverityEnum.ERROR,
-            )
-            traceback.print_exc()
-            await self.disconnect_from_loom()
+    def t(self, phrase: str) -> str:
+        """Translate a phrase, if possible."""
+        if phrase not in self.translation_dict:
+            self.log.warning(f"{phrase!r} not in translation dict")
+        return self.translation_dict.get(phrase, phrase)
 
     async def __aenter__(self) -> LoomServer:
         await self.start()

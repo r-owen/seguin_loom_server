@@ -1,3 +1,6 @@
+// The following is replaced by python code, so don't change it
+const TranslationDict = {}
+
 const MaxFiles = 10
 
 // Keys are the possible values of the LoomConnectionState.state messages
@@ -23,6 +26,14 @@ for (let i = 0; i < Object.keys(ConnectionStateTranslationDict).length; ++i) {
 Object.freeze(ConnectionStateEnum)
 
 const numericCollator = new Intl.Collator(undefined, { numeric: true })
+
+function t(phrase) {
+    if (!(phrase in TranslationDict)) {
+        console.log("Missing translation key:", phrase)
+        return phrase
+    }
+    return TranslationDict[phrase]
+}
 
 /*
 A minimal weaving pattern, including display code.
@@ -322,28 +333,27 @@ class LoomClient {
     Display the loom state (a combination of loomConnectionState and loomState)
     */
     displayLoomState(reason) {
-        var text = this.loomConnectionState
+        var text = t(this.loomConnectionState)
         var text_color = "black"
         if (this.loomConnectionState != ConnectionStateEnum.connected) {
             text_color = "red"  // loom must be connected to weave
-        }
-        if (this.loomConnectionStateReason != "") {
-            text = text + " " + this.loomConnectionStateReason
-        }
-        if ((this.loomState != null) && (this.loomConnectionState == ConnectionStateEnum.connected)) {
+            if (this.loomConnectionStateReason != "") {
+                text = text + " " + this.loomConnectionStateReason
+            }
+        } else if ((this.loomState != null) && (this.loomConnectionState == ConnectionStateEnum.connected)) {
             if (this.loomState.error) {
-                text = "error"
+                text = t("error")
                 text_color = "red"
             } else {
                 text_color = "black"  // redundant
                 if (this.loomState.shed_closed && this.loomState.cycle_complete) {
-                    text = "shed closed and cycle complete"
+                    text = t("shed closed") + " " + t("and") + " " + t("cycle not complete")
                 } else if (this.loomState.shed_closed) {
-                    text = "shed closed"
+                    text = t("shed closed")
                 } else if (this.loomState.cycle_complete) {
-                    text = "cycle complete"
+                    text = t("cycle complete")
                 } else {
-                    text = "shed not closed, cycle not complete"
+                    text = t("shed not closed") + ", " + t("cycle not complete")
                 }
             }
         }
@@ -371,7 +381,7 @@ class LoomClient {
         }
         pickNumberElt.value = pickNumber
         repeatNumberElt.value = repeatNumber
-        totalPicksElt.textContent = ` of ${totalPicks}; repeat `
+        totalPicksElt.textContent = totalPicks
     }
 
     /*
@@ -556,7 +566,7 @@ Handle websocket close
 async function handleWebsocketClosed(event) {
     console.log("web socket closed", event)
     var statusElt = document.getElementById("status")
-    statusElt.textContent = `lost connection to server: ${event.reason}`
+    statusElt.textContent = t("lost connection to server") + `: ${event.reason}`
     statusElt.style.color = "red"
 }
 

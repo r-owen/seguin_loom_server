@@ -3,10 +3,11 @@ from __future__ import annotations
 __all__ = ["MockLoom"]
 
 import asyncio
+import logging
 from types import TracebackType
 from typing import Type
 
-from .loom_constants import TERMINATOR
+from .loom_constants import LOG_NAME, TERMINATOR
 from .mock_streams import (
     MockStreamReader,
     MockStreamWriter,
@@ -24,7 +25,7 @@ class MockLoom:
     Parameters
     ----------
     verbose : bool
-        If True, print diagnostics to stdout.
+        If True, log diagnostic information.
 
     The user controls this loom by:
 
@@ -35,6 +36,7 @@ class MockLoom:
     """
 
     def __init__(self, verbose: bool = True) -> None:
+        self.log = logging.getLogger(LOG_NAME)
         self.verbose = verbose
         self.weave_forward = True
         self.reply_writer: StreamWriterType | None = None
@@ -99,14 +101,16 @@ class MockLoom:
                 break
             cmd = cmdbytes.decode().rstrip()
             if self.verbose:
-                print(f"MockLoom: process client command {cmd!r}")
+                self.log.info(f"MockLoom: process client command {cmd!r}")
             if not cmd:
                 return
             if cmd[0:1] != "=":
-                print(f"MockLoom: invalid command {cmd!r}: must begin with '='")
+                self.log.warning(
+                    f"MockLoom: invalid command {cmd!r}: must begin with '='"
+                )
                 return
             if len(cmd) < 2:
-                print(
+                self.log.warning(
                     f"MockLoom: invalid command {cmd!r}: must be at least 2 characters"
                 )
                 return
@@ -118,12 +122,12 @@ class MockLoom:
                     try:
                         self.shaft_word = int(cmd_data, base=16)
                     except Exception:
-                        print(
+                        self.log.warning(
                             f"MockLoom: invalid command {cmd!r}: data after =C not a hex value"
                         )
                         return
                     if self.verbose:
-                        print(f"MockLoom: raise shafts {self.shaft_word:08x}")
+                        self.log.info(f"MockLoom: raise shafts {self.shaft_word:08x}")
                     self.weave_cycle_completed = False
                     await self.report_shafts()
                 case "U":
@@ -134,22 +138,28 @@ class MockLoom:
                     if cmd_data == "0":
                         self.weave_forward = True
                         if self.verbose:
-                            print("MockLoom: weave forward, commanded by software")
+                            self.log.info(
+                                "MockLoom: weave forward, commanded by software"
+                            )
                     elif cmd_data == "1":
                         self.weave_forward = False
                         if self.verbose:
-                            print("MockLoom: weave backwards, commanded by software")
+                            self.log.info(
+                                "MockLoom: weave backwards, commanded by software"
+                            )
                     else:
-                        print(f"MockLoom: invalid command {cmd!r}: arg nmust be 0 or 1")
+                        self.log.warning(
+                            f"MockLoom: invalid command {cmd!r}: arg nmust be 0 or 1"
+                        )
                         return
                     await self.report_direction()
                 case "V":
                     if self.verbose:
-                        print("MockLoom: get version")
+                        self.log.info("MockLoom: get version")
                     await self.reply("=v001")
                 case "Q":
                     if self.verbose:
-                        print("MockLoom: get state")
+                        self.log.info("MockLoom: get state")
                     await self.report_state()
                 case "#":
                     # Out of band command specific to the mock loom.
@@ -159,35 +169,37 @@ class MockLoom:
                             self.weave_forward = not self.weave_forward
                             await self.report_direction()
                             if self.verbose:
-                                print(
+                                self.log.info(
                                     "MockLoom: oob toggle weave direction: "
                                     f"{DIRECTION_NAMES[self.weave_forward]}"
                                 )
                         case "e":
                             self.error_flag = not self.error_flag
                             if self.verbose:
-                                print(
+                                self.log.info(
                                     f"MockLoom: oob toggle loom error flag to {self.error_flag}"
                                 )
                             await self.report_state()
                         case "n":
                             if self.verbose:
-                                print("MockLoom: oob request next pick")
+                                self.log.info("MockLoom: oob request next pick")
                             self.weave_cycle_completed = True
                             await self.report_state()
                         case "q":
                             if self.verbose:
-                                print("MockLoom: oob quit command")
+                                self.log.info("MockLoom: oob quit command")
                             if self.reply_writer is not None:
                                 self.reply_writer.close()
                             self.done_task.set_result(None)
                         case _:
-                            print(f"MockLoom: unrecognized oob command: {cmd_data!r}")
+                            self.log.warning(
+                                f"MockLoom: unrecognized oob command: {cmd_data!r}"
+                            )
 
     async def reply(self, reply: str) -> None:
         """Issue the specified reply, which should not be terminated"""
         if self.verbose:
-            print(f"MockLoom: send reply {reply!r}")
+            self.log.info(f"MockLoom: send reply {reply!r}")
         if self.connected():
             assert self.reply_writer is not None
             self.reply_writer.write(reply.encode() + TERMINATOR)

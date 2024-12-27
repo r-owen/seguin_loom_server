@@ -12,16 +12,16 @@
 <body>
     <div class="flex-container" id="pattern_select_grid">
         <div>
-            <label>Pattern</label>
-            <select name="pattern_menu" id="pattern_menu" title="Select a pattern to weave.&#10;Clear Menu clears all names except the one in use.">
+            <label>{Pattern}</label>
+            <select name="pattern_menu" id="pattern_menu">
                 <option></option>
                 <hr>
-                <option>Clear Recents</option>
+                <option>{Clear Recents}</option>
             </select>
         </div>
         <form class="upload-form">
             <input type="file" id="file_input" multiple accept=".wif,.dtx" style="display:none;">
-            <input type="button" value="Upload"  id="upload_patterns" title="Upload .wif or .dtx weaving files.&#10;You can also drag on drop files on the window." onclick="document.getElementById('file_input').click()"/>
+            <input type="button" value="{Upload}"  id="upload_patterns" onclick="document.getElementById('file_input').click()"/>
         </form>
     </div>
     <p/>
@@ -32,29 +32,31 @@
         </div>
         <div class="flex-container" id="pattern_controls_grid">
             <div id="goto_next_pick_spacer"></div>
-            <div><button type="button" id="goto_next_pick" title="Pick color; click to go to next pick"></button></div>
-            <div><button type="button" id="weave_direction" title="Weave direction; click to change direction">?</button></div>
+            <div><button type="button" id="goto_next_pick"></button></div>
+            <div><button type="button" id="weave_direction">?</button></div>
         </div>
     </div>
 
     <div class="flex-container">
-        <label>Shafts raised</label>
+        <label>{Shafts raised}</label>
         <label id="shafts_raised"/>
     </div>
 
     <form action="" id="jump_to_pick_form">
         <div class="flex-container">
-            <label>Pick</label>
-            <input size="5" id="pick_number" inputmode="decimal" title="Specify the pick number to jump to."/>
-            <label id="total_picks">of ?: repeat</label>
-            <input size="3" id="repeat_number" inputmode="decimal" title="Specify the repeat number to jump to."/>
-            <button type="submit" id="jump_to_pick_submit">Jump</button>
-            <button type="button" id="jump_to_pick_reset">Reset</button>
+            <label>{Pick}</label>
+            <input size="5" id="pick_number" inputmode="decimal"/>
+            <label>{of}</label>
+            <label id="total_picks">?</label>
+            <label>{repeat}</label>
+            <input size="3" id="repeat_number" inputmode="decimal"/>
+            <button type="submit" id="jump_to_pick_submit">{Jump}</button>
+            <button type="button" id="jump_to_pick_reset">{Reset}</button>
         </div>
     </form>
 
     <div class="flex-container">
-        <label>Status:</label>
+        <label>{Status}:</label>
         <label id="status">disconnected</label>
     </div>
 
@@ -67,13 +69,13 @@
     <p>Debugging stuff</p>
     
     <form action="" id="oob_command_form">
-        <label>Command mock loom</label>
-        <input type="text" size="1" id="outOfBandCommand" autocomplete="off" title="Commands are:&#10;d=change direction&#10;n=next shed&#10;e=toggle mock loom error state&#10;q=quit mock loom"/>
-        <button type="submit">Submit</button>
+        <label>{Command mock loom}</label>
+        <input type="text" size="1" id="outOfBandCommand" autocomplete="off"/>
+        <button type="submit">{Submit}</button>
     </form>
 
     <div class="flex-container">
-        <label>Message from server: </label>
+        <label>{Message from server}: </label>
         <label id='message'/>
     </div>
     <script>

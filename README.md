@@ -126,7 +126,14 @@ If you are worried that the pattern database is corrupted, or just want to clear
 
 * Test this software on a real loom.
 
-* Add support for other languages.
+* Add specialized RPi support, including:
+
+  * Adding detailed setup instructions, including specifying a host name and the desired language.
+  * Adding code to display useful information on an RPi screen.
+
+* Display yarn thickness.
+
+* Improve the French translation.
 
 ## Developer Tips
 

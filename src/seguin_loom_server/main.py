@@ -1,6 +1,9 @@
 import argparse
+import importlib.resources
+import json
+import locale
+import logging
 import pathlib
-import pkgutil
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -8,11 +11,17 @@ import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse, Response
 
+from .loom_constants import LOG_NAME
 from .loom_server import DEFAULT_DATABASE_PATH, LoomServer
+
+PKG_FILES = importlib.resources.files("seguin_loom_server")
+LOCALE_FILES = PKG_FILES.joinpath("locales")
 
 # Avoid warnings about no event loop in unit tests
 # by constructing when the server starts
 loom_server: LoomServer | None = None
+
+translation_dict: dict[str, str] = {}
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -48,30 +57,65 @@ def create_argument_parser() -> argparse.ArgumentParser:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, FastAPI]:
     global loom_server
+    global translation_dict
+    translation_dict = get_translation_dict()
     parser = create_argument_parser()
     args = parser.parse_args()
 
-    async with LoomServer(**vars(args)) as loom_server:
+    async with LoomServer(
+        **vars(args), translation_dict=translation_dict
+    ) as loom_server:
         yield
 
 
 app = FastAPI(lifespan=lifespan)
 
+log = logging.getLogger(LOG_NAME)
 
-def get_file(filename: str) -> str:
-    """Get the contents of text file from src/seguin_loom_driver"""
-    bindata = pkgutil.get_data(package="seguin_loom_server", resource=filename)
-    assert bindata is not None
-    return bindata.decode()
+
+def get_translation_dict() -> dict[str, str]:
+    """Get the translation dict for the current locale"""
+    # Read a dict of key: None and turn into a dict of key: key
+    default_dict = json.loads(LOCALE_FILES.joinpath("default.json").read_text())
+    translation_dict = {key: key for key in default_dict}
+
+    language_code = locale.getlocale(locale.LC_CTYPE)[0]
+    log.info(f"Locale: {language_code!r}")
+    if language_code is not None:
+        short_language_code = language_code.split("_")[0]
+        for lc in (short_language_code, language_code):
+            translation_name = lc + ".json"
+            translation_file = LOCALE_FILES.joinpath(translation_name)
+            if translation_file.is_file():
+                log.info(f"Loading translation file {translation_name!r}")
+                locale_dict = json.loads(translation_file.read_text())
+                purged_locale_dict = {
+                    key: value
+                    for key, value in locale_dict.items()
+                    if value is not None
+                }
+                if purged_locale_dict != locale_dict:
+                    log.warning(
+                        f"Some entries in translation file {translation_name!r} "
+                        "have null entries"
+                    )
+                translation_dict.update(purged_locale_dict)
+    return translation_dict
 
 
 @app.get("/")
 async def get() -> HTMLResponse:
-    display_html_template = get_file("display.html_template")
+    global translation_dict
 
-    display_css = get_file("display.css")
+    display_html_template = PKG_FILES.joinpath("display.html_template").read_text()
 
-    display_js = get_file("display.js")
+    display_css = PKG_FILES.joinpath("display.css").read_text()
+
+    display_js = PKG_FILES.joinpath("display.js").read_text()
+    js_translation_str = "const TranslationDict = " + json.dumps(
+        translation_dict, indent=4
+    )
+    display_js = display_js.replace("const TranslationDict = {}", js_translation_str)
 
     assert loom_server is not None
     is_mock = loom_server.mock_loom is not None
@@ -81,6 +125,7 @@ async def get() -> HTMLResponse:
         display_css=display_css,
         display_js=display_js,
         display_debug_controls=display_debug_controls,
+        **translation_dict,
     )
 
     return HTMLResponse(display_html)
@@ -88,10 +133,7 @@ async def get() -> HTMLResponse:
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    bindata = pkgutil.get_data(
-        package="seguin_loom_server", resource="favicon-32x32.png"
-    )
-    assert bindata is not None
+    bindata = PKG_FILES.joinpath("favicon-32x32.png").read_bytes()
     return Response(content=bindata, media_type="image/x-icon")
 
 
