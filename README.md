@@ -122,19 +122,6 @@ If you shut down the server or there is a power failure, all this information sh
 
 If you are worried that the pattern database is corrupted, or just want to clear it, you can start the server with the **--reset-db** argument, as explained above.
 
-## Planned Improvements
-
-* Test this software on a real loom.
-
-* Add specialized RPi support, including:
-
-  * Adding detailed setup instructions, including specifying a host name and the desired language.
-  * Adding code to display useful information on an RPi screen.
-
-* Display yarn thickness.
-
-* Improve the French translation.
-
 ## Developer Tips
 
 * Download the source code from [github](https://github.com/r-owen/seguin_loom_server.git),
