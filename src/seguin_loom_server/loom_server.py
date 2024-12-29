@@ -15,6 +15,7 @@ from typing import Any, Type
 
 from dtx_to_wif import read_dtx, read_wif
 from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.websockets import WebSocketState
 from serial_asyncio import open_serial_connection  # type: ignore
 
 from . import client_replies
@@ -162,6 +163,8 @@ class LoomServer:
         self, ws: WebSocket, code: CloseCode = CloseCode.NORMAL, reason: str = ""
     ) -> None:
         """Close a websocket using best effort and a short timeout."""
+        if ws.client_state == WebSocketState.DISCONNECTED:
+            return
         try:
             async with asyncio.timeout(0.1):
                 await ws.close(code, reason)
