@@ -1,7 +1,9 @@
-// The following is replaced by python code, so don't change it
+// The following line is replaced by python code, so don't change it
 const TranslationDict = {}
 
 const MaxFiles = 10
+
+const MinBlockSize = 5
 
 // Keys are the possible values of the LoomConnectionState.state messages
 // Values are entries in ConnectionStateEnum
@@ -87,8 +89,8 @@ class ReducedPattern {
         const numEnds = this.warp_colors.length
         const numPicks = this.picks.length
         const blockSize = Math.min(
-            Math.max(Math.round(canvas.width / numEnds), 5),
-            Math.max(Math.round(canvas.height / numPicks), 5))
+            Math.max(Math.round(canvas.width / numEnds), MinBlockSize),
+            Math.max(Math.round(canvas.height / numPicks), MinBlockSize))
         const numEndsToShow = Math.min(numEnds, Math.floor(canvas.width / blockSize))
         const numPicksToShow = Math.min(numPicks, Math.floor(canvas.height / blockSize))
         var startPick = this.pick_number - Math.round(numPicksToShow / 2)
