@@ -71,28 +71,42 @@ You are now ready to weave.
 * The pattern display shows woven fabric below and potential future fabric above.
   (This is the opposite of the usual US drawdown).
 
-* There are two buttons to the right of the pattern display:
+* There are two rectangles to the right of the pattern display:
 
-    * The upper button shows the current pick color (blank if pick 0).
-      Press it to advance to the next pick. 
-      You may also advance by pressing the loom's pedal or the "PICK"" button on the loom's control panel.
+    * The short upper rectangle shows the color of the current pick (blank if pick 0),
+      or, if you have specified a pick to jump to, then it is the color of that pick.
   
-    * The lower button shows whether you are weaving (green down arrow) or unweaving (red up arrow).
+    * The square lower rectangle is a button that shows whether you are weaving (green down arrow) or unweaving (red up arrow).
       The arrow points in the direction cloth is moving through the loom.
-      Press this button to change the direction.
-      You may change direction by pressing the "UNW" button on the loom's control panel.
+      You can change the weave direction by pressing this button, or by pressing the "UNW" button on the loom's control panel.
 
-* To jump to a different pick and/or repeat:
+* To advance to the next pick (weaving or unweave, depending on the current direction):
+  press the loom's pedal or the "PICK" button on the loom's control panel.
 
-    * Enter the desired value in the pick and repeat boxes.
-      The boxes will turn pink and the Jump and Reset buttons will be enabled.
+* To jump to a different pick and/or repeat is a two-step process:
+  first you request the jump, then you advance to it by pressing the pedal or PICK button.
+  (Two steps are necessary because the loom will not accept an unsolicited command to raise shafts.)
+  In detail:
 
-    * Type carriage return or press the "Jump" button to jump.
-      Note: if a box is empty when you press "Jump", it will not change that value.
+    * Enter the desired pick and/or repeat values.
+      The input area(s) will turn pink and the Jump button will be enabled.
 
-    * Press the "Reset" button to reset the displayed values.
+    * Press the "return" keyboard key, or press the "Jump" button on the web page
+      to send the jump information to the server.
+      You will see several changes:
 
-    * Advancing to the next pick or choosing a new pattern will also reset the displayed values.
+      * The jump input areas will have a white background and the jump button will be disabled.
+
+      * The pattern display will show this new pick in the center row, with a dotted box around it
+
+    * Advance to the next pick (by pressing the loom's pedal or the PICK button on the loom's control panel).
+      Until you advance to the new pick, you can request a different jump (in case you got it wrong the first time) or cancel the jump in several ways:
+    
+      * Press the "Reset" button to the right of "Jump".
+
+      * Reload the page.
+
+      * Select a new pattern.
 
 * The software will automatically repeat patterns if you weave or unweave beyond the end.
   However, you must advance twice, when you reach an end, before the next set of shafts is raised.
