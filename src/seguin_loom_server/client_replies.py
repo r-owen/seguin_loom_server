@@ -40,6 +40,15 @@ class CurrentPickNumber:
 
 
 @dataclasses.dataclass
+class JumpPickNumber:
+    """Pending pick and repeat numbers"""
+
+    type: str = dataclasses.field(init=False, default="JumpPickNumber")
+    pick_number: int | None
+    repeat_number: int | None
+
+
+@dataclasses.dataclass
 class LoomConnectionState:
     """The state of the server's connection to the loom"""
 

@@ -39,63 +39,6 @@ def select_pattern(
     return pattern
 
 
-def test_goto_next_pick() -> None:
-    pattern_name = all_pattern_paths[3].name
-
-    with create_test_client(upload_patterns=all_pattern_paths[2:5]) as (
-        client,
-        websocket,
-    ):
-        pattern = select_pattern(websocket=websocket, pattern_name=pattern_name)
-        num_picks_in_pattern = len(pattern.picks)
-
-        expected_pick_number = 0
-        expected_repeat_number = 1
-        while not (expected_repeat_number == 2 and expected_pick_number == 3):
-            expected_pick_number += 1
-            if expected_pick_number == num_picks_in_pattern + 1:
-                expected_pick_number = 0
-                expected_repeat_number += 1
-
-            websocket.send_json(dict(type="goto_next_pick"))
-            reply = receive_dict(websocket)
-            assert reply == dict(
-                type="CurrentPickNumber",
-                pick_number=expected_pick_number,
-                repeat_number=expected_repeat_number,
-            )
-
-        websocket.send_json(
-            dict(
-                type="weave_direction",
-                forward=False,
-            )
-        )
-        reply = receive_dict(websocket)
-        assert reply == dict(
-            type="WeaveDirection",
-            forward=False,
-        )
-
-        while not (
-            expected_repeat_number == 0
-            and expected_pick_number == num_picks_in_pattern - 2
-        ):
-            expected_pick_number -= 1
-            print(f"{expected_pick_number=}, {expected_repeat_number=}")
-            if expected_pick_number < 0:
-                expected_pick_number = num_picks_in_pattern
-                expected_repeat_number -= 1
-
-            websocket.send_json(dict(type="goto_next_pick"))
-            reply = receive_dict(websocket)
-            assert reply == dict(
-                type="CurrentPickNumber",
-                pick_number=expected_pick_number,
-                repeat_number=expected_repeat_number,
-            )
-
-
 def test_jump_to_pick() -> None:
     pattern_name = all_pattern_paths[3].name
 
@@ -116,8 +59,9 @@ def test_jump_to_pick() -> None:
                     )
                 )
                 reply = receive_dict(websocket)
+                print(f"{reply=!r}")
                 assert reply == dict(
-                    type="CurrentPickNumber",
+                    type="JumpPickNumber",
                     pick_number=pick_number,
                     repeat_number=repeat_number,
                 )
@@ -230,7 +174,7 @@ def test_pattern_persistence() -> None:
             websocket,
         ):
             # Select a few patterns; for each one jump to some random
-            # pick and repeat.
+            # pick (including actually going to that pick).
             assert len(all_pattern_paths) > 3
             for path in (all_pattern_paths[0], all_pattern_paths[3]):
                 pattern = select_pattern(websocket=websocket, pattern_name=path.name)
@@ -246,10 +190,26 @@ def test_pattern_persistence() -> None:
                 )
                 reply = receive_dict(websocket)
                 assert reply == dict(
+                    type="JumpPickNumber",
+                    pick_number=pattern.pick_number,
+                    repeat_number=pattern.repeat_number,
+                )
+                websocket.send_json(dict(type="oobcommand", command="n"))
+                replies = dict()
+                for _ in range(3):
+                    reply = receive_dict(websocket)
+                    replies[reply["type"]] = reply
+                assert replies["CurrentPickNumber"] == dict(
                     type="CurrentPickNumber",
                     pick_number=pattern.pick_number,
                     repeat_number=pattern.repeat_number,
                 )
+                assert replies["JumpPickNumber"] == dict(
+                    type="JumpPickNumber",
+                    pick_number=None,
+                    repeat_number=None,
+                )
+                assert "LoomState" in replies
 
         # This expects that first pattern 0 and then pattern 3
         # was selected from all_pattern_paths:

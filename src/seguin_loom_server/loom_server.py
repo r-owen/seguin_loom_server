@@ -104,12 +104,14 @@ class LoomServer:
         self.read_loom_task: asyncio.Future = asyncio.Future()
         self.done_task: asyncio.Future = asyncio.Future()
         self.current_pattern: ReducedPattern | None = None
+        self.jump_pick = client_replies.JumpPickNumber(
+            pick_number=None, repeat_number=None
+        )
         self.weave_forward = True
         self.loom_error_flag = False
         self.command_dispatch_table = dict(
             clear_pattern_names=self.cmd_clear_pattern_names,
             file=self.cmd_file,
-            goto_next_pick=self.cmd_goto_next_pick,
             jump_to_pick=self.cmd_jump_to_pick,
             select_pattern=self.cmd_select_pattern,
             weave_direction=self.cmd_weave_direction,
@@ -118,6 +120,7 @@ class LoomServer:
 
     async def start(self) -> None:
         await self.pattern_db.init()
+        await self.clear_jump_pick()
         # Restore current pattern, if any
         names = await self.pattern_db.get_pattern_names()
         if len(names) > 0:
@@ -265,6 +268,22 @@ class LoomServer:
         shaft_word = sum(1 << i for i, isup in enumerate(pick.are_shafts_up) if isup)
         await self.command_loom(f"=C{shaft_word:08x}")
 
+    async def clear_jump_pick(self, force_output=False):
+        """Clear self.jump_pick and report value if changed or force_output
+
+        Parameters
+        ----------
+        force_output : bool
+            If True then report JumpPickNumber, even if it has not changed.
+        """
+        null_jump_pick = client_replies.JumpPickNumber(
+            pick_number=None, repeat_number=None
+        )
+        do_report = force_output or self.jump_pick != null_jump_pick
+        self.jump_pick = null_jump_pick
+        if do_report:
+            await self.report_jump_pick_number()
+
     async def command_loom(self, cmd: str) -> None:
         """Send a command to the loom.
 
@@ -333,47 +352,35 @@ class LoomServer:
                 severity=MessageSeverityEnum.WARNING,
             )
 
-    async def cmd_goto_next_pick(self, command: SimpleNamespace) -> None:
-        if self.current_pattern is None:
-            await self.report_command_problem(
-                message="Cannot advance; no pattern",
-                severity=MessageSeverityEnum.WARNING,
-            )
-            return
-
-        # Command a new pick, if there is one.
-        new_pick_number = self.increment_pick_number()
-        if new_pick_number > 0:
-            pick = self.current_pattern.get_current_pick()
-            await self.command_pick(pick)
-        await self.report_pick_number()
-
     async def cmd_jump_to_pick(self, command: SimpleNamespace) -> None:
-        new_pick_number = command.pick_number
-        new_repeat_number = command.repeat_number
         if self.current_pattern is None:
             raise CommandError(
                 self.t("cannot jump to a pick") + ": " + self.t("no pattern")
             )
-        try:
-            self.current_pattern.set_current_pick_number(new_pick_number)
-            self.current_pattern.repeat_number = new_repeat_number
-        except IndexError:
-            if new_pick_number < 0:
-                reason = f": {new_pick_number} < 0"
-            else:
-                reason = f": {new_pick_number} > {len(self.current_pattern.picks)}"
-            raise CommandError(self.t("invalid pick number") + reason)
-        if self.current_pattern.pick_number > 0:
-            pick = self.current_pattern.get_current_pick()
-            await self.command_pick(pick)
-        await self.report_pick_number()
+        if command.pick_number is not None:
+            if command.pick_number < 0:
+                raise CommandError(
+                    self.t("invalid pick number") + f" {command.pick_number} < 0"
+                )
+            max_pick_number = len(self.current_pattern.picks)
+            if command.pick_number > max_pick_number:
+                raise CommandError(
+                    self.t("invalid pick number")
+                    + f" {command.pick_number} > {max_pick_number}"
+                )
+
+        self.jump_pick = client_replies.JumpPickNumber(
+            pick_number=command.pick_number,
+            repeat_number=command.repeat_number,
+        )
+        await self.report_jump_pick_number()
 
     async def cmd_select_pattern(self, command: SimpleNamespace) -> None:
         name = command.name
         if self.current_pattern is not None and self.current_pattern.name == name:
             return
         await self.select_pattern(name)
+        await self.clear_jump_pick()
 
     async def cmd_weave_direction(self, command: SimpleNamespace) -> None:
         # Warning: this code assumes that the loom server sends "=u"
@@ -394,8 +401,9 @@ class LoomServer:
             await self.report_loom_connection_state()
             await self.report_pattern_names()
             await self.report_weave_direction()
+            await self.clear_jump_pick(force_output=True)
             await self.report_current_pattern()
-            await self.report_pick_number()
+            await self.report_current_pick_number()
             if self.loom_connected:
                 # request loom status
                 await self.command_loom("=Q")
@@ -542,11 +550,22 @@ class LoomServer:
                         pick_wanted = bool(state_word & 0x4)
                         if pick_wanted and self.current_pattern is not None:
                             # Command a new pick, if there is one.
-                            new_pick_number = self.increment_pick_number()
+                            if self.jump_pick.pick_number is not None:
+                                new_pick_number = self.jump_pick.pick_number
+                                self.current_pattern.set_current_pick_number(
+                                    new_pick_number
+                                )
+                            else:
+                                new_pick_number = self.increment_pick_number()
+                            if self.jump_pick.repeat_number is not None:
+                                self.current_pattern.repeat_number = (
+                                    self.jump_pick.repeat_number
+                                )
                             if new_pick_number > 0:
                                 pick = self.current_pattern.get_current_pick()
                                 await self.command_pick(pick)
-                            await self.report_pick_number()
+                            await self.clear_jump_pick()
+                            await self.report_current_pick_number()
 
         except asyncio.CancelledError:
             pass
@@ -623,7 +642,7 @@ class LoomServer:
         reply = client_replies.PatternNames(names=names)
         await self.reply_to_client(reply)
 
-    async def report_pick_number(self) -> None:
+    async def report_current_pick_number(self) -> None:
         """Report CurrentPickNumber to the client."""
         if self.current_pattern is None:
             return
@@ -638,6 +657,10 @@ class LoomServer:
         )
         await self.reply_to_client(reply)
 
+    async def report_jump_pick_number(self) -> None:
+        """Report JumpPickNumber to the client."""
+        await self.reply_to_client(self.jump_pick)
+
     async def report_weave_direction(self) -> None:
         """Report WeaveDirection"""
         client_reply = client_replies.WeaveDirection(forward=self.weave_forward)
@@ -650,7 +673,7 @@ class LoomServer:
             raise CommandError(f"select_pattern failed: no such pattern: {name}")
         self.current_pattern = pattern
         await self.report_current_pattern()
-        await self.report_pick_number()
+        await self.report_current_pick_number()
 
     def t(self, phrase: str) -> str:
         """Translate a phrase, if possible."""

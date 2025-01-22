@@ -68,7 +68,7 @@ class ReducedPattern {
     Center the current pick vertically.
     */
     display() {
-        var gotoNextPickElt = document.getElementById("goto_next_pick")
+        var gotoNextPickElt = document.getElementById("pick_color")
         var shaftsRaisedElt = document.getElementById("shafts_raised")
         if ((this.pick_number > 0) && (this.pick_number <= this.picks.length)) {
             const pick = this.picks[this.pick_number - 1]
@@ -164,6 +164,8 @@ class LoomClient {
         this.loomConnectionState = ConnectionStateEnum.disconnected
         this.loomConnectionStateReason = ""
         this.loomState = null
+        this.jump_pick_number = null
+        this.jump_repeat_number = null
         // this.init()
     }
 
@@ -205,31 +207,35 @@ class LoomClient {
         var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
         jumpToPickResetElt.addEventListener("click", this.handleJumpToPickReset.bind(this))
 
+        var nextPickButton = document.getElementById("next_pick_button")
+        nextPickButton.addEventListener("click", this.handleNextPickButton.bind(this))
+
         var oobCommandForm = document.getElementById("oob_command_form")
         oobCommandForm.addEventListener("submit", this.handleOutOfBandCommand.bind(this))
 
-        var pickNumberElt = document.getElementById("pick_number")
-        pickNumberElt.addEventListener("input", this.handleJumpInput.bind(this))
+        var weaveDirectionElt = document.getElementById("weave_direction")
+        weaveDirectionElt.addEventListener("click", this.handleToggleWeaveDirection.bind(this))
 
-        var repeatNumberElt = document.getElementById("repeat_number")
-        repeatNumberElt.addEventListener("input", this.handleJumpInput.bind(this))
+        var jumpPickNumberElt = document.getElementById("jump_pick_number")
+        jumpPickNumberElt.addEventListener("input", this.handleJumpInput.bind(this))
+
+        var jumpRepeatNumberElt = document.getElementById("jump_repeat_number")
+        jumpRepeatNumberElt.addEventListener("input", this.handleJumpInput.bind(this))
 
         var patternMenu = document.getElementById("pattern_menu")
         patternMenu.addEventListener("change", this.handlePatternMenu.bind(this))
-
-        var gotoNextPickElt = document.getElementById("goto_next_pick")
-        gotoNextPickElt.addEventListener("click", this.handleGotoNextPick.bind(this))
-
-        var weaveDirectionElt = document.getElementById("weave_direction")
-        weaveDirectionElt.addEventListener("click", this.handleWeaveDirection.bind(this))
     }
 
     /*
     Process a reply from the loom server (data read from the web socket)
     */
     handleServerReply(event) {
-        var messageElt = document.getElementById("message")
-        messageElt.textContent = event.data.substring(0, 80) + "..."
+        var messageElt = document.getElementById("read_message")
+        if (event.data.length <= 80) {
+            messageElt.textContent = event.data
+        } else {
+            messageElt.textContent = event.data.substring(0, 80) + "..."
+        }
         var commandProblemElt = document.getElementById("command_problem")
 
         const datadict = JSON.parse(event.data)
@@ -242,6 +248,10 @@ class LoomClient {
             this.weavingPattern.repeat_number = datadict.repeat_number
             this.weavingPattern.display()
             this.displayPick()
+        } else if (datadict.type == "JumpPickNumber") {
+            this.jump_pick_number = datadict.pick_number
+            this.jump_repeat_number = datadict.repeat_number
+            this.displayJumpPick()
         } else if (datadict.type == "LoomConnectionState") {
             this.loomConnectionState = ConnectionStateTranslationDict[datadict.state]
             this.loomConnectionStateReason = datadict.reason
@@ -372,7 +382,6 @@ class LoomClient {
         var repeatNumberElt = document.getElementById("repeat_number")
         var pickNumberElt = document.getElementById("pick_number")
         var totalPicksElt = document.getElementById("total_picks")
-        resetPickAndRepeatNumber()
         var pickNumber = ""
         var totalPicks = "?"
         var repeatNumber = ""
@@ -381,9 +390,25 @@ class LoomClient {
             repeatNumber = this.weavingPattern.repeat_number
             totalPicks = this.weavingPattern.picks.length
         }
-        pickNumberElt.value = pickNumber
-        repeatNumberElt.value = repeatNumber
+        pickNumberElt.textContent = pickNumber
+        repeatNumberElt.textContent = repeatNumber
         totalPicksElt.textContent = totalPicks
+    }
+
+    /*
+    Display the jump pick and repeat
+    */
+    displayJumpPick() {
+        var pickNumberElt = document.getElementById("jump_pick_number")
+        var repeatNumberElt = document.getElementById("jump_repeat_number")
+        if (!this.weavingPattern) {
+            this.jump_pick_number = null
+            this.jump_repeat_number = null
+        }
+        pickNumberElt.value = nullToBlank(this.jump_pick_number)
+        repeatNumberElt.value = nullToBlank(this.jump_repeat_number)
+
+        this.handleJumpInput(null)
     }
 
     /*
@@ -393,13 +418,13 @@ class LoomClient {
     */
     async handlePatternMenu(event) {
         var patternMenu = document.getElementById("pattern_menu")
-        var message
+        var command
         if (patternMenu.value == "Clear Recents") {
-            message = { "type": "clear_pattern_names" }
+            command = { "type": "clear_pattern_names" }
         } else {
-            message = { "type": "select_pattern", "name": patternMenu.value }
+            command = { "type": "select_pattern", "name": patternMenu.value }
         }
-        await this.ws.send(JSON.stringify(message))
+        await this.sendCommand(command)
     }
 
     /*
@@ -441,15 +466,44 @@ class LoomClient {
             var file = fileArray[i]
             var data = await readTextFile(file)
             var fileCommand = { "type": "file", "name": file.name, "data": data }
-            await this.ws.send(JSON.stringify(fileCommand))
+            await this.sendCommand(fileCommand)
         }
 
         // Select the first file uploaded
         var file = fileArray[0]
         var selectPatternCommand = { "type": "select_pattern", "name": file.name }
-        await this.ws.send(JSON.stringify(selectPatternCommand))
+        await this.sendCommand(selectPatternCommand)
     }
 
+
+    /*
+    Handle user editing of jump_pick_number and jump_repeat_number.
+    */
+    async handleJumpInput(event) {
+        var jumpToPickSubmitElt = document.getElementById("jump_to_pick_submit")
+        var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
+        var jumpPickNumberElt = document.getElementById("jump_pick_number")
+        var jumpRepeatNumberElt = document.getElementById("jump_repeat_number")
+        var disableJump = true
+        if (asNumberOrNull(jumpPickNumberElt.value) != this.jump_pick_number) {
+            jumpPickNumberElt.style.backgroundColor = "pink"
+            disableJump = false
+        } else {
+            jumpPickNumberElt.style.backgroundColor = "white"
+        }
+        if (asNumberOrNull(jumpRepeatNumberElt.value) != this.jump_repeat_number) {
+            jumpRepeatNumberElt.style.backgroundColor = "pink"
+            disableJump = false
+        } else {
+            jumpRepeatNumberElt.style.backgroundColor = "white"
+        }
+        var disableReset = disableJump && (jumpPickNumberElt.value == "") && (jumpRepeatNumberElt.value == "")
+        jumpToPickSubmitElt.disabled = disableJump
+        jumpToPickResetElt.disabled = disableReset
+        if (event != null) {
+            event.preventDefault()
+        }
+    }
 
     /*
     Handle jump_to_pick form submit.
@@ -457,53 +511,13 @@ class LoomClient {
     Send the "jump_to_pick" command.
     */
     async handleJumpToPick(event) {
-        var pickNumberElt = document.getElementById("pick_number")
-        var repeatNumberElt = document.getElementById("repeat_number")
+        var jumpPickNumberElt = document.getElementById("jump_pick_number")
+        var jumpRepeatNumberElt = document.getElementById("jump_repeat_number")
         // Handle blanks by using the current default, if any
-        var pickNumber = 0
-        var repeatNumber = 0
-        if (this.weavingPattern) {
-            pickNumber = this.weavingPattern.pick_number
-            repeatNumber = this.weavingPattern.repeat_number
-        }
-        if (pickNumberElt.value != "") {
-            pickNumber = Number(pickNumberElt.value)
-        }
-        if (repeatNumberElt.value != "") {
-            repeatNumber = Number(repeatNumberElt.value)
-        }
-        var message = { "type": "jump_to_pick", "pick_number": pickNumber, "repeat_number": repeatNumber }
-        await this.ws.send(JSON.stringify(message))
-        event.preventDefault()
-    }
-
-    /*
-    Handle user editing of pick_number and repeat_number.
-    */
-    async handleJumpInput(event) {
-        var jumpToPickSubmitElt = document.getElementById("jump_to_pick_submit")
-        var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
-        var pickNumberElt = document.getElementById("pick_number")
-        var repeatNumberElt = document.getElementById("repeat_number")
-        if (this.weavingPattern) {
-            var disable = true
-            if (pickNumberElt.value != this.weavingPattern.pick_number) {
-                pickNumberElt.style.backgroundColor = "pink"
-                disable = false
-            } else {
-                pickNumberElt.style.backgroundColor = "white"
-            }
-            if (repeatNumberElt.value != this.weavingPattern.repeat_number) {
-                repeatNumberElt.style.backgroundColor = "pink"
-                disable = false
-            } else {
-                repeatNumberElt.style.backgroundColor = "white"
-            }
-            jumpToPickSubmitElt.disabled = disable
-            jumpToPickResetElt.disabled = disable
-        } else {
-            resetPickAndRepeatNumber()
-        }
+        var pickNumber = asNumberOrNull(jumpPickNumberElt.value)
+        var repeatNumber = asNumberOrNull(jumpRepeatNumberElt.value)
+        var command = { "type": "jump_to_pick", "pick_number": pickNumber, "repeat_number": repeatNumber }
+        await this.sendCommand(command)
         event.preventDefault()
     }
 
@@ -513,40 +527,37 @@ class LoomClient {
     Reset pick number and repeat number to current values.
     */
     async handleJumpToPickReset(event) {
-        var pickNumberElt = document.getElementById("pick_number")
-        var repeatNumberElt = document.getElementById("repeat_number")
-        var pickNumber = ""
-        var repeatNumber = ""
-        if (this.weavingPattern) {
-            var pickNumber = this.weavingPattern.pick_number
-            var repeatNumber = this.weavingPattern.repeat_number
-        }
-        pickNumberElt.value = pickNumber
-        repeatNumberElt.value = repeatNumber
-        resetPickAndRepeatNumber()
-    }
-
-    /*
-    Handle out of band commands from the "outOfBandCommand" input element.
-    
-    Send the "oobcommand" command.
-    */
-    async handleOutOfBandCommand(event) {
-        var inputElt = document.getElementById("outOfBandCommand")
-        var message = { "type": "oobcommand", "command": inputElt.value }
-        await this.ws.send(JSON.stringify(message))
-        inputElt.value = ""
+        var jumpPickNumberElt = document.getElementById("jump_pick_number")
+        var jumpRepeatNumberElt = document.getElementById("jump_repeat_number")
+        jumpPickNumberElt.value = ""
+        jumpRepeatNumberElt.value = ""
+        var command = { "type": "jump_to_pick", "pick_number": null, "repeat_number": null }
+        await this.sendCommand(command)
         event.preventDefault()
     }
 
     /*
-    Handle goto_next_pick button clicks.
+    Handle next pick button command.
     
-    Send the goto_next_pick command to the loom server.
+    Send the "oobcommand" command.
     */
-    async handleGotoNextPick(event) {
-        var message = { "type": "goto_next_pick" }
-        await this.ws.send(JSON.stringify(message))
+    async handleNextPickButton(event) {
+        var command = { "type": "oobcommand", "command": "n" }
+        await this.sendCommand(command)
+        event.preventDefault()
+    }
+
+    /*
+    Handle out of band commands from the "out_of_band_command" input element.
+    
+    Send the "oobcommand" command.
+    */
+    async handleOutOfBandCommand(event) {
+        var inputElt = document.getElementById("out_of_band_command")
+        var command = { "type": "oobcommand", "command": inputElt.value }
+        await this.sendCommand(command)
+        inputElt.value = ""
+        event.preventDefault()
     }
 
     /*
@@ -554,11 +565,22 @@ class LoomClient {
     
     Send the weave_direction command to the loom server.
     */
-    async handleWeaveDirection(event) {
+    async handleToggleWeaveDirection(event) {
         var weaveDirectionElt = document.getElementById("weave_direction")
         var newForward = (weaveDirectionElt.textContent == "↑") ? true : false
-        var message = { "type": "weave_direction", "forward": newForward }
-        await this.ws.send(JSON.stringify(message))
+        var command = { "type": "weave_direction", "forward": newForward }
+        await this.sendCommand(command)
+    }
+
+    async sendCommand(commandDict) {
+        var commandElt = document.getElementById("sent_command")
+        var commandStr = JSON.stringify(commandDict)
+        if (commandStr.length <= 80) {
+            commandElt.textContent = commandStr
+        } else {
+            commandElt.textContent = commandStr.substring(0, 80) + "..."
+        }
+        await this.ws.send(commandStr)
     }
 }
 
@@ -566,10 +588,23 @@ class LoomClient {
 Handle websocket close
 */
 async function handleWebsocketClosed(event) {
-    console.log("web socket closed", event)
     var statusElt = document.getElementById("status")
     statusElt.textContent = t("lost connection to server") + `: ${event.reason}`
     statusElt.style.color = "red"
+}
+
+/*
+Return "" if value is null, else return value
+*/
+function nullToBlank(value) {
+    return value == null ? "" : value
+}
+
+/*
+Return null if value is "", else return Number(value)
+*/
+function asNumberOrNull(value) {
+    return value == "" ? null : Number(value)
 }
 
 //
@@ -591,18 +626,6 @@ function readTextFile(file) {
 
         reader.readAsText(file)
     })
-}
-
-function resetPickAndRepeatNumber() {
-    var pickNumberElt = document.getElementById("pick_number")
-    var repeatNumberElt = document.getElementById("repeat_number")
-    var jumpToPickSubmitElt = document.getElementById("jump_to_pick_submit")
-    var jumpToPickResetElt = document.getElementById("jump_to_pick_reset")
-    jumpToPickSubmitElt.disabled = true
-    jumpToPickResetElt.disabled = true
-    pickNumberElt.style.backgroundColor = "white"
-    repeatNumberElt.style.backgroundColor = "white"
-
 }
 
 loomClient = new LoomClient()

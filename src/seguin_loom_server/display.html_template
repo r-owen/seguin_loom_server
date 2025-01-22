@@ -32,7 +32,7 @@
         </div>
         <div class="flex-container" id="pattern_controls_grid">
             <div id="goto_next_pick_spacer"></div>
-            <div><button type="button" id="goto_next_pick"></button></div>
+            <div><button type="button" id="pick_color"></button></div>
             <div><button type="button" id="weave_direction">?</button></div>
         </div>
     </div>
@@ -42,14 +42,21 @@
         <label id="shafts_raised"/>
     </div>
 
+    <div class="flex-container">
+        <label>{Pick}</label>
+        <label id="pick_number"></label>
+        <label>{of}</label>
+        <label id="total_picks">?</label>
+        <label>{repeat}</label>
+        <label id="repeat_number"></label>
+    </div>
+
     <form action="" id="jump_to_pick_form">
         <div class="flex-container">
-            <label>{Pick}</label>
-            <input size="5" id="pick_number" inputmode="decimal"/>
-            <label>{of}</label>
-            <label id="total_picks">?</label>
+            <label>{Jump to pick}</label>
+            <input size="5" id="jump_pick_number" inpumode="decimal"></input>
             <label>{repeat}</label>
-            <input size="3" id="repeat_number" inputmode="decimal"/>
+            <input size="3" id="jump_repeat_number" inputmode="decimal"></input>
             <button type="submit" id="jump_to_pick_submit">{Jump}</button>
             <button type="button" id="jump_to_pick_reset">{Reset}</button>
         </div>
@@ -70,14 +77,21 @@
     
     <form action="" id="oob_command_form">
         <label>{Command mock loom}</label>
-        <input type="text" size="1" id="outOfBandCommand" autocomplete="off"/>
+        <input type="text" size="1" id="out_of_band_command" autocomplete="off"/>
         <button type="submit">{Submit}</button>
+        <button id="next_pick_button">{Next Pick}</button>
     </form>
 
     <div class="flex-container">
-        <label>{Message from server}: </label>
-        <label id='message'/>
+        <label>{Sent command}: </label>
+        <label id='sent_command'/>
     </div>
+
+    <div class="flex-container">
+        <label>{Read message}: </label>
+        <label id='read_message'/>
+    </div>
+
     <script>
         {display_js}
     </script>

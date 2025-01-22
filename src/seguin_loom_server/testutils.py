@@ -74,6 +74,7 @@ def create_test_client(
                 if read_initial_state:
                     seen_types: set[str] = set()
                     expected_types = {
+                        "JumpPickNumber",
                         "LoomConnectionState",
                         "LoomState",
                         "PatternNames",
@@ -121,6 +122,9 @@ def create_test_client(
                                     reply.repeat_number
                                     == expected_current_pattern.repeat_number
                                 )
+                            case "JumpPickNumber":
+                                assert reply.pick_number is None
+                                assert reply.repeat_number is None
                             case "WeaveDirection":
                                 assert reply.forward
                             case _:

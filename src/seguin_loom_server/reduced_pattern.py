@@ -98,21 +98,15 @@ class ReducedPattern:
         self.pick_number = next_pick_number
         return next_pick_number
 
-    def get_current_pick(self, pick_number: int | None = None) -> Pick:
+    def get_current_pick(self) -> Pick:
         """Get the current pick.
-
-        Parameters
-        ----------
-        pick_number : int | None
-            The pick number, or None for the current pick.
 
         Raises
         ------
         IndexError
             If current pick number < 1 or > len(self.picks)
         """
-        if pick_number is None:
-            pick_number = self.pick_number
+        pick_number = self.pick_number
         if pick_number < 1 or pick_number > len(self.picks):
             raise IndexError(f"{pick_number=} < 1 or > {len(self.picks)}")
         return self.picks[pick_number - 1]
