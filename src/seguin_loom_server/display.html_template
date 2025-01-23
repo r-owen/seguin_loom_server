@@ -28,7 +28,9 @@
 
     <div class="flex-container" id="pattern_display_grid">
         <div>
-            <canvas id="canvas"/>
+            <!-- For best results, the canvas height should be odd. -->
+            <!-- See the style sheet for an explanation of why the dimensions are set here. -->
+            <canvas id="canvas" height="151" width="265"/>
         </div>
         <div class="flex-container" id="pattern_controls_grid">
             <div id="goto_next_pick_spacer"></div>
