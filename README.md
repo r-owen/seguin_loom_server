@@ -5,8 +5,8 @@ This server is intended to allow you to control your loom from any phone, tablet
 This server must run on a computer that is connected (via a USB cable) to your loom.
 This code has only been tested on macOS but should also work on any flavor of linux.
 
-Warning: this software has not yet been tested on a real loom.
-I will do that once I have access to a loom (I am trying to order one now).
+Warning: this software has not yet been tested on a real loom, because I don't own a Séguin loom.
+Please test it with a computer you already own before buying a dedicated server computer.
 
 ## Installing and Running the Web Server
 
@@ -17,7 +17,7 @@ I will do that once I have access to a loom (I am trying to order one now).
 
 * Install [Python](https://www.python.org/downloads/) 3.11 or later on the computer.
 
-* Install this "seguin_loom_server" package on the computer with command: **pip install seguin_loom_server**
+* Install this [seguin_loom_server](https://pypi.org/project/seguin-loom-server/) package on the computer with command: **pip install seguin_loom_server**
 
 * Determine the name of the port that your computer is using to connect to the loom.
   On macOS or linux:
@@ -34,15 +34,15 @@ I will do that once I have access to a loom (I am trying to order one now).
 * If you are using a Raspberry Pi, I strongly recommend [setting a permanent host name](https://www.tomshardware.com/how-to/static-ip-raspberry-pi), so you can always connect your web browser to the same address.
   This step is not necessary for macOS, because it always has a permanent host name.
 
-* If you don't know the host name of the computer, you can query it with command: **hostname**
+* If you don't know the host name of your computer, you can query it with command: **hostname**
 
 * Run the web server with command: **run_seguin_loom** ***port_name***
 
-    * Special port name "mock" will run a simulated loom (no USB connection required).
+    * Special port name **mock** will run a simulated loom (no USB connection required).
       This can give you a chance to try out the user interface.
     
-    * If you want to clear out old patterns, you can add the --reset-db argument: **run_seguin_loom** ***port_name*** **--reset-db**
-      or select Clear Recents in the pattern menu in the web interface, see below.
+    * If you want to clear out old patterns, you can add the **--reset-db argument**
+      or select "Clear Recents" in the pattern menu in the web interface (see below).
   
 * You may stop the web server by typing ctrl-C (probably twice).
 
@@ -57,14 +57,14 @@ In the resulting window:
 
 * Select the desired pattern using the "Pattern" drop-down menu.
   The menu shows the 25 most recent patterns you have used.
-  You may switch patterns at any time, and the server remembers where were weaving in each of them.
+  You may switch patterns at any time, and the server remembers where you were weaving in each of them.
   This allows you to load several treadlings for one threading (each as a separate pattern file) and switch between them at will.
 
 * To clear out the pattern menu (which may become cluttered over time),
   select "Clear Recents", the last item in the menu.
   This clears out information for all patterns except the current pattern.
-  If you want to get rid of the current pattern as well, first load a new pattern
-  (or restart the server with the **--reset-db** command-line argument, as explained above).
+  If you want to get rid of the current pattern as well, first load a new pattern (which will not be purged),
+  or restart the server with the **--reset-db** command-line argument, as explained above.
 
 You are now ready to weave.
 
@@ -76,31 +76,32 @@ You are now ready to weave.
     * The short upper rectangle shows the color of the current pick (blank if pick 0),
       or, if you have specified a pick to jump to, then it is the color of that pick.
   
-    * The square lower rectangle is a button that shows whether you are weaving (green down arrow) or unweaving (red up arrow).
+    * The square button below that shows the weave direction: whether you are weaving (green down arrow) or unweaving (red up arrow).
       The arrow points in the direction cloth is moving through the loom.
       You can change the weave direction by pressing this button, or by pressing the "UNW" button on the loom's control panel.
 
-* To advance to the next pick (weaving or unweave, depending on the current direction):
+* To advance to the next pick (weaving or unweaving, depending on the weave direction):
   press the loom's pedal or the "PICK" button on the loom's control panel.
 
 * To jump to a different pick and/or repeat is a two-step process:
-  first you request the jump, then you advance to it by pressing the pedal or PICK button.
+  first you request the jump, then you advance to it by pressing the pedal or "PICK" button.
   (Two steps are necessary because the loom will not accept an unsolicited command to raise shafts.)
   In detail:
 
     * Enter the desired pick and/or repeat values.
       The input area(s) will turn pink and the Jump button will be enabled.
 
-    * Press the "return" keyboard key, or press the "Jump" button on the web page
-      to send the jump information to the server.
+    * Press the "return" keyboard key or click the "Jump" button on the web page
+      to send the requested jump to the server.
       You will see several changes:
 
-      * The jump input areas will have a white background and the jump button will be disabled.
+      * The jump input boxes will have a white background and the jump button will be disabled.
 
-      * The pattern display will show this new pick in the center row, with a dotted box around it
+      * The pattern display will show the new pick in the center row, with a dotted box around it.
+        (If you are only jumping to a new repeat, the box will be solid.)
 
-    * Advance to the next pick (by pressing the loom's pedal or the PICK button on the loom's control panel).
-      Until you advance to the new pick, you can request a different jump (in case you got it wrong the first time) or cancel the jump in several ways:
+    * Advance to the next pick by pressing the loom's pedal or the "PICK" button on the loom's control panel.
+      Until you advance to the next pick, you can request a different jump (in case you got it wrong the first time) or cancel the jump in several ways:
     
       * Press the "Reset" button to the right of "Jump".
 
@@ -109,7 +110,7 @@ You are now ready to weave.
       * Select a new pattern.
 
 * The software will automatically repeat patterns if you weave or unweave beyond the end.
-  However, you must advance twice, when you reach an end, before the next set of shafts is raised.
+  However, you must advance twice when you reach an end, before the next set of shafts is raised.
   This is meant as a signal that you have finished one pattern repeat.
   On the first advance the display will show pick 0 and the repeat number will increase or decrease by 1,
   but the shed will not change.
@@ -117,15 +118,18 @@ You are now ready to weave.
 *  Subtleties:
 
     * The server only allows one web browser to connect, and the most recent connection attempt wins.
-      (This prevents a mystery connection from hogging the loom).
+      This prevents a mystery connection from hogging the loom.
       If the connection is dropped on the device you want to use for weaving,
       simply reload the page to regain the connection.
 
     * Every time you connected to the web server or reload the page, the server refreshes
       its connection to the loom (by disconnecting and immediately reconnecting).
       So if the server is reporting a problem with its connection to the loom,
-      and it is not due to the loom losing power or the USB cable becoming disconnected,
+      and it is not due to the loom losing power, or a disconnected or bad USB cable,
       you might try reloading the page.
+    
+    * If the loom seems confused, try turning it off, waiting a few seconds, then turning it on again.
+      Then reload the web page, to force the web server to make a new connection to the loom.
 
 ## Remembering Patterns
 
@@ -150,7 +154,7 @@ If you are worried that the pattern database is corrupted, or just want to clear
 
 * You may run a mock loom by starting the server with: **run_seguin_loom mock**.
   The mock loom does not use a serial port.
-  **run_seguin_loom mock** also accepts these command-line arguments:
+  **run_seguin_loom** also accepts these command-line arguments:
 
     * **--reset-db** Reset the pattern database. Try this if you think the database is corrupted.
 
@@ -158,6 +162,6 @@ If you are worried that the pattern database is corrupted, or just want to clear
 
 * In mock mode the web page shows a few extra controls for debugging.
 
-* Warning: automatic reload when you change the python code does not work;
-  instead you have to kill the server with two control-C, then run it again.
+* Warning: the web server's automatic reload feature, which reloads Python code whenever you save changes, *does not work* with this software.
+  Instead you have to kill the web server by typing control-C several times, until you get a terminal prompt, then run the server again.
   This may be a bug in uvicorn; see [this discussion](https://github.com/encode/uvicorn/discussions/2075) for more information.
