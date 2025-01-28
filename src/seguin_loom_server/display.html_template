@@ -77,12 +77,13 @@
     <hr>
     <p>Debugging stuff</p>
     
-    <form action="" id="oob_command_form">
+    <div class="flex-container">
         <label>{Command mock loom}</label>
-        <input type="text" size="1" id="out_of_band_command" autocomplete="off"/>
-        <button type="submit">{Submit}</button>
-        <button id="next_pick_button">{Next Pick}</button>
-    </form>
+        <button id="oob_next_pick">{Next Pick}</button>
+        <button id="oob_change_direction">{Change Direction}</button>
+        <button id="oob_toggle_error">{Toggle Error}</button>
+        <button id="oob_close_connection">{Close Connection}</button>
+    </div>
 
     <div class="flex-container">
         <label>{Sent command}: </label>

@@ -491,6 +491,7 @@ class LoomServer:
                 if self.verbose:
                     self.log.info(f"LoomServer: read loom reply: {reply_bytes!r}")
                 if not reply_bytes:
+                    print("WARNING: no bytes; quit read_loom_loop")
                     return
                 reply = reply_bytes.decode().strip()
                 if len(reply) < 2:
@@ -513,7 +514,7 @@ class LoomServer:
                 reply_data = reply[2:]
                 match reply_char:
                     case "c":
-                        # Actual shafts that are up
+                        # Shafts that are up
                         pass
                     case "u":
                         # Weave direction

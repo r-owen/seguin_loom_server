@@ -2,14 +2,19 @@ import io
 import pathlib
 import random
 import tempfile
+from typing import Any
 
 from dtx_to_wif import read_dtx, read_wif
 
+from seguin_loom_server import mock_loom
 from seguin_loom_server.reduced_pattern import (
     ReducedPattern,
     reduced_pattern_from_pattern_data,
 )
 from seguin_loom_server.testutils import WebSocketType, create_test_client, receive_dict
+
+# Speed up tests
+mock_loom.SHAFT_MOTION_DURATION = 0.1
 
 datadir = pathlib.Path(__file__).parent / "data"
 
@@ -59,7 +64,6 @@ def test_jump_to_pick() -> None:
                     )
                 )
                 reply = receive_dict(websocket)
-                print(f"{reply=!r}")
                 assert reply == dict(
                     type="JumpPickNumber",
                     pick_number=pick_number,
@@ -80,29 +84,19 @@ def test_oobcommand() -> None:
         # Make enough forward picks to get into the 3rd repeat
         expected_pick_number = 0
         expected_repeat_number = 1
+        i = 0
         while not (expected_repeat_number == 3 and expected_pick_number > 2):
+            i += 1
             expected_pick_number += 1
             if expected_pick_number > num_picks_in_pattern:
                 expected_pick_number -= num_picks_in_pattern + 1
                 expected_repeat_number += 1
-            websocket.send_json(dict(type="oobcommand", command="n"))
-            for _ in range(2):
-                reply = receive_dict(websocket)
-                if reply["type"] == "CurrentPickNumber":
-                    assert reply == dict(
-                        type="CurrentPickNumber",
-                        pick_number=expected_pick_number,
-                        repeat_number=expected_repeat_number,
-                    )
-                elif reply["type"] == "LoomState":
-                    assert reply == dict(
-                        type="LoomState",
-                        shed_closed=True,
-                        cycle_complete=True,
-                        error=False,
-                    )
-                else:
-                    raise AssertionError(f"Unexpected reply type in {reply=}")
+            command_next_pick(
+                websocket=websocket,
+                jump_pending=False,
+                expected_pick_number=expected_pick_number,
+                expected_repeat_number=expected_repeat_number,
+            )
 
         websocket.send_json(dict(type="oobcommand", command="d"))
         reply = receive_dict(websocket)
@@ -117,24 +111,12 @@ def test_oobcommand() -> None:
             if expected_pick_number < 0:
                 expected_pick_number += num_picks_in_pattern + 1
                 expected_repeat_number -= 1
-            websocket.send_json(dict(type="oobcommand", command="n"))
-            for _ in range(2):
-                reply = receive_dict(websocket)
-                if reply["type"] == "CurrentPickNumber":
-                    assert reply == dict(
-                        type="CurrentPickNumber",
-                        pick_number=expected_pick_number,
-                        repeat_number=expected_repeat_number,
-                    )
-                elif reply["type"] == "LoomState":
-                    assert reply == dict(
-                        type="LoomState",
-                        shed_closed=True,
-                        cycle_complete=True,
-                        error=False,
-                    )
-                else:
-                    raise AssertionError(f"Unexpected reply type in {reply=}")
+            command_next_pick(
+                websocket=websocket,
+                jump_pending=False,
+                expected_pick_number=expected_pick_number,
+                expected_repeat_number=expected_repeat_number,
+            )
         assert expected_pick_number == end_pick_number
         assert expected_repeat_number == 0
 
@@ -149,8 +131,8 @@ def test_oobcommand() -> None:
         reply = receive_dict(websocket)
         assert reply == dict(
             type="LoomState",
-            shed_closed=True,
-            cycle_complete=False,
+            shed_fully_closed=True,
+            pick_wanted=False,
             error=True,
         )
 
@@ -158,17 +140,79 @@ def test_oobcommand() -> None:
         reply = receive_dict(websocket)
         assert reply == dict(
             type="LoomState",
-            shed_closed=True,
-            cycle_complete=False,
+            shed_fully_closed=True,
+            pick_wanted=False,
             error=False,
         )
+
+
+def command_next_pick(
+    websocket: WebSocketType,
+    jump_pending: bool,
+    expected_pick_number: int,
+    expected_repeat_number: int,
+) -> None:
+    """Command the next pick and test the replies.
+
+    Parameters
+    ----------
+    websocket : WebSocketType
+        websocket connection
+    jump_pending : bool
+        Is a jump pending?
+    expected_pick_number : int
+        Expected pick number of the next pick
+    expected_repeat_number : int
+        Expected repeat number of the next pick
+    """
+    websocket.send_json(dict(type="oobcommand", command="n"))
+    expected_replies: list[dict[str, Any]] = [
+        dict(
+            type="LoomState",
+            shed_fully_closed=True,
+            pick_wanted=True,
+            error=False,
+        )
+    ]
+    if jump_pending:
+        expected_replies += [
+            dict(
+                type="JumpPickNumber",
+                pick_number=None,
+                repeat_number=None,
+            ),
+        ]
+    expected_replies += [
+        dict(
+            type="CurrentPickNumber",
+            pick_number=expected_pick_number,
+            repeat_number=expected_repeat_number,
+        ),
+    ]
+    if expected_pick_number != 0:
+        expected_replies += [
+            dict(
+                type="LoomState",
+                shed_fully_closed=False,
+                pick_wanted=False,
+                error=False,
+            ),
+            dict(
+                type="LoomState",
+                shed_fully_closed=True,
+                pick_wanted=False,
+                error=False,
+            ),
+        ]
+    for expected_reply in expected_replies:
+        reply = receive_dict(websocket)
+        assert reply == expected_reply
 
 
 def test_pattern_persistence() -> None:
     rnd = random.Random(47)
     pattern_list = []
     with tempfile.NamedTemporaryFile() as f:
-        print(f"temp file name={f.name!r}")
         with create_test_client(upload_patterns=all_pattern_paths, db_path=f.name) as (
             client,
             websocket,
@@ -194,22 +238,12 @@ def test_pattern_persistence() -> None:
                     pick_number=pattern.pick_number,
                     repeat_number=pattern.repeat_number,
                 )
-                websocket.send_json(dict(type="oobcommand", command="n"))
-                replies = dict()
-                for _ in range(3):
-                    reply = receive_dict(websocket)
-                    replies[reply["type"]] = reply
-                assert replies["CurrentPickNumber"] == dict(
-                    type="CurrentPickNumber",
-                    pick_number=pattern.pick_number,
-                    repeat_number=pattern.repeat_number,
+                command_next_pick(
+                    websocket=websocket,
+                    jump_pending=True,
+                    expected_pick_number=pattern.pick_number,
+                    expected_repeat_number=pattern.repeat_number,
                 )
-                assert replies["JumpPickNumber"] == dict(
-                    type="JumpPickNumber",
-                    pick_number=None,
-                    repeat_number=None,
-                )
-                assert "LoomState" in replies
 
         # This expects that first pattern 0 and then pattern 3
         # was selected from all_pattern_paths:

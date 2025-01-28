@@ -63,23 +63,22 @@ class LoomState:
 
     In detail the states are (from the manual):
 
-    * shed_closed: True when the shed is fully closed.
-    * cycle_complete: True when a weaving cycle has been completed,
-            and the loom is requesting a fresh pattern.
+    * shed_fully_closed: True when the shed is fully closed.
+    * pick_wanted: True when the loom is requesting the next pick.
     * error: True when the loom is not ready (trouble with the loom).
     """
 
     type: str = dataclasses.field(init=False, default="LoomState")
-    shed_closed: bool
-    cycle_complete: bool
+    shed_fully_closed: bool
+    pick_wanted: bool
     error: bool
 
     @classmethod
     def from_state_word(cls, state_word: int) -> LoomState:
         """Construct a LoomState from the state value of the =s reply."""
         return cls(
-            shed_closed=bool(state_word & 0x01),
-            cycle_complete=bool(state_word & 0x04),
+            shed_fully_closed=bool(state_word & 0x01),
+            pick_wanted=bool(state_word & 0x04),
             error=bool(state_word & 0x08),
         )
 

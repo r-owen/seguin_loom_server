@@ -157,11 +157,17 @@ class LoomClient {
         var jumpRepeatNumberElt = document.getElementById("jump_repeat_number")
         jumpRepeatNumberElt.addEventListener(`focus`, () => jumpRepeatNumberElt.select())
 
-        var nextPickButton = document.getElementById("next_pick_button")
-        nextPickButton.addEventListener("click", this.handleNextPickButton.bind(this))
+        var oobChangeDirectionButton = document.getElementById("oob_change_direction")
+        oobChangeDirectionButton.addEventListener("click", this.handleOOBChangeDirection.bind(this))
 
-        var oobCommandForm = document.getElementById("oob_command_form")
-        oobCommandForm.addEventListener("submit", this.handleOutOfBandCommand.bind(this))
+        var oobCloseConnectionButton = document.getElementById("oob_close_connection")
+        oobCloseConnectionButton.addEventListener("click", this.handleOOBCloseConnection.bind(this))
+
+        var oobNextPickButton = document.getElementById("oob_next_pick")
+        oobNextPickButton.addEventListener("click", this.handleOOBNextPick.bind(this))
+
+        var oobToggleErrorButton = document.getElementById("oob_toggle_error")
+        oobToggleErrorButton.addEventListener("click", this.handleOOBToggleError.bind(this))
 
         var weaveDirectionElt = document.getElementById("weave_direction")
         weaveDirectionElt.addEventListener("click", this.handleToggleWeaveDirection.bind(this))
@@ -308,14 +314,10 @@ class LoomClient {
                 text_color = "red"
             } else {
                 text_color = "black"  // redundant
-                if (this.loomState.shed_closed && this.loomState.cycle_complete) {
-                    text = t("shed closed") + " " + t("and") + " " + t("cycle not complete")
-                } else if (this.loomState.shed_closed) {
-                    text = t("shed closed")
-                } else if (this.loomState.cycle_complete) {
-                    text = t("cycle complete")
+                if (this.loomState.shed_fully_closed) {
+                    text = t("ready")
                 } else {
-                    text = t("shed not closed") + ", " + t("cycle not complete")
+                    text = t("shafts moving")
                 }
             }
         }
@@ -604,26 +606,47 @@ class LoomClient {
     }
 
     /*
-    Handle next pick button command.
+    Handle the OOB change direction button.
     
-    Send the "oobcommand" command.
+    Send "oobcommand" command "d".
     */
-    async handleNextPickButton(event) {
-        var command = { "type": "oobcommand", "command": "n" }
+    async handleOOBChangeDirection(event) {
+        var command = { "type": "oobcommand", "command": "d" }
         await this.sendCommand(command)
         event.preventDefault()
     }
 
     /*
-    Handle out of band commands from the "out_of_band_command" input element.
+    Handle the OOB close connection button.
     
-    Send the "oobcommand" command.
+    Send "oobcommand" command "c".
     */
-    async handleOutOfBandCommand(event) {
-        var inputElt = document.getElementById("out_of_band_command")
-        var command = { "type": "oobcommand", "command": inputElt.value }
+    async handleOOBCloseConnection(event) {
+        var command = { "type": "oobcommand", "command": "c" }
         await this.sendCommand(command)
-        inputElt.value = ""
+        event.preventDefault()
+    }
+
+    /*
+    Handle the OOB next pick button.
+    
+    Send "oobcommand" command "n".
+    */
+    async handleOOBNextPick(event) {
+        var command = { "type": "oobcommand", "command": "n" }
+        await this.sendCommand(command)
+        event.preventDefault()
+    }
+
+
+    /*
+    Handle the OOB toggle error button.
+    
+    Send "oobcommand" command "e".
+    */
+    async handleOOBToggleError(event) {
+        var command = { "type": "oobcommand", "command": "e" }
+        await this.sendCommand(command)
         event.preventDefault()
     }
 
