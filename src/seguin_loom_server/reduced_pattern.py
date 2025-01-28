@@ -62,6 +62,7 @@ class ReducedPattern:
     warp_colors: list[int]
     threading: list[int]
     picks: list[Pick]
+    pick0: Pick
     pick_number: int = 0
     repeat_number: int = 1
 
@@ -75,6 +76,7 @@ class ReducedPattern:
         datadict = copy.deepcopy(datadict)
         pop_and_check_type_field(typename="ReducedPattern", datadict=datadict)
         datadict["picks"] = [Pick.from_dict(pickdict) for pickdict in datadict["picks"]]
+        datadict["pick0"] = Pick.from_dict(datadict["pick0"])
         return cls(**datadict)
 
     def increment_pick_number(self, weave_forward: bool) -> int:
@@ -107,9 +109,12 @@ class ReducedPattern:
             If current pick number < 1 or > len(self.picks)
         """
         pick_number = self.pick_number
-        if pick_number < 1 or pick_number > len(self.picks):
-            raise IndexError(f"{pick_number=} < 1 or > {len(self.picks)}")
-        return self.picks[pick_number - 1]
+        if pick_number == 0:
+            return self.pick0
+        if pick_number < 0 or pick_number > len(self.picks):
+            raise IndexError(f"{pick_number=} < 0 or > {len(self.picks)}")
+        else:
+            return self.picks[pick_number - 1]
 
     def set_current_pick_number(self, pick_number: int) -> None:
         """Set pick_number.
@@ -234,6 +239,7 @@ def reduced_pattern_from_pattern_data(
         warp_colors=warp_colors,
         threading=threading,
         picks=picks,
+        pick0=Pick(are_shafts_up=[False] * num_shafts, color=default_weft_color),
     )
     return result
 

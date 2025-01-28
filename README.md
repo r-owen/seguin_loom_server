@@ -83,13 +83,18 @@ You are now ready to weave.
 * To advance to the next pick (weaving or unweaving, depending on the weave direction):
   press the loom's pedal or the "PICK" button on the loom's control panel.
 
-* To jump to a different pick and/or repeat is a two-step process:
+* The software will automatically repeat patterns if you weave or unweave beyond the end.
+  However, you must advance twice when you reach an end, before the next set of shafts is raised.
+  The first advance will lower all shafts, as a signal that you have finished weaving or unweaving one pattern repeat.
+  The next advance will show the desired shed.
+
+* To jump to a different pick and/or repeat number is a two-step process:
   first you request the jump, then you advance to it by pressing the pedal or "PICK" button.
   (Two steps are necessary because the loom will not accept an unsolicited command to raise shafts.)
   In detail:
 
-    * Enter the desired pick and/or repeat values.
-      The input area(s) will turn pink and the Jump button will be enabled.
+    * Enter the desired pick and/or repeat numbers in the boxes on the "Jump to pick" line.
+      The box(es) will turn pink and the Jump button will be enabled.
 
     * Press the "return" keyboard key or click the "Jump" button on the web page
       to send the requested jump to the server.
@@ -98,22 +103,17 @@ You are now ready to weave.
       * The jump input boxes will have a white background and the jump button will be disabled.
 
       * The pattern display will show the new pick in the center row, with a dotted box around it.
-        (If you are only jumping to a new repeat, the box will be solid.)
+        (But if you are only changing the repeat number, the box will be solid.)
 
     * Advance to the next pick by pressing the loom's pedal or the "PICK" button on the loom's control panel.
-      Until you advance to the next pick, you can request a different jump (in case you got it wrong the first time) or cancel the jump in several ways:
+      Until you advance to the next pick, you can request a different jump
+      (in case you got it wrong the first time) or cancel the jump in several ways:
     
       * Press the "Reset" button to the right of "Jump".
 
       * Reload the page.
 
       * Select a new pattern.
-
-* The software will automatically repeat patterns if you weave or unweave beyond the end.
-  However, you must advance twice when you reach an end, before the next set of shafts is raised.
-  This is meant as a signal that you have finished one pattern repeat.
-  On the first advance the display will show pick 0 and the repeat number will increase or decrease by 1,
-  but the shed will not change.
 
 *  Subtleties:
 
@@ -128,7 +128,7 @@ You are now ready to weave.
       and it is not due to the loom losing power, or a disconnected or bad USB cable,
       you might try reloading the page.
     
-    * If the loom seems confused, try turning it off, waiting a few seconds, then turning it on again.
+    * If the loom seems confused, try turning off the loom, waiting a few seconds, then turning it on again.
       Then reload the web page, to force the web server to make a new connection to the loom.
 
 ## Remembering Patterns
@@ -138,7 +138,10 @@ The web server keeps track of the most recent 25 patterns you have used in a dat
 The patterns in the database are displayed in the pattern menu.
 If you shut down the server or there is a power failure, all this information should be retained.
 
-If you are worried that the pattern database is corrupted, or just want to clear it, you can start the server with the **--reset-db** argument, as explained above.
+You can reset the database by starting the server with the **--reset-db** argument, as explained above.
+You must reset the database if you upgrade the seguin_loom_server package and the new database format is incompatible
+(in which case the server will fail at startup).
+You may also want to reset the database if you are weaving a new project and don't want to see any of the saved patterns.
 
 ## Developer Tips
 

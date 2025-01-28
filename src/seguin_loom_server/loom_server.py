@@ -562,9 +562,8 @@ class LoomServer:
                                 self.current_pattern.repeat_number = (
                                     self.jump_pick.repeat_number
                                 )
-                            if new_pick_number > 0:
-                                pick = self.current_pattern.get_current_pick()
-                                await self.command_pick(pick)
+                            pick = self.current_pattern.get_current_pick()
+                            await self.command_pick(pick)
                             await self.clear_jump_pick()
                             await self.report_current_pick_number()
 

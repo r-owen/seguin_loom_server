@@ -188,22 +188,19 @@ def command_next_pick(
             pick_number=expected_pick_number,
             repeat_number=expected_repeat_number,
         ),
+        dict(
+            type="LoomState",
+            shed_fully_closed=False,
+            pick_wanted=False,
+            error=False,
+        ),
+        dict(
+            type="LoomState",
+            shed_fully_closed=True,
+            pick_wanted=False,
+            error=False,
+        ),
     ]
-    if expected_pick_number != 0:
-        expected_replies += [
-            dict(
-                type="LoomState",
-                shed_fully_closed=False,
-                pick_wanted=False,
-                error=False,
-            ),
-            dict(
-                type="LoomState",
-                shed_fully_closed=True,
-                pick_wanted=False,
-                error=False,
-            ),
-        ]
     for expected_reply in expected_replies:
         reply = receive_dict(websocket)
         assert reply == expected_reply
