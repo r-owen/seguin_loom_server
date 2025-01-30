@@ -5,6 +5,8 @@ const MaxFiles = 10
 
 const MinBlockSize = 11
 const MaxBlockSize = 41
+// Display gap on left and right edges of warp and top and bottom edges of weft
+const ThreadDisplayGap = 1
 
 // Keys are the possible values of the LoomConnectionState.state messages
 // Values are entries in ConnectionStateEnum
@@ -382,16 +384,16 @@ class LoomClient {
             numPicksToShow += 1
         }
 
+        // If not yet done, create warp gradients for those warps what will be shown
         if (this.currentPattern.warpGradients[0] == undefined) {
-            // Construct gradients for those warps that will be shown
             for (let i = 0; i < numEndsToShow; i++) {
                 const threadColor = this.currentPattern.color_table[this.currentPattern.warp_colors[i]]
                 const xStart = canvas.width - blockSize * (i + 1)
-                var warpGradient = ctx.createLinearGradient(xStart, 0, xStart + blockSize, 0)
+                var warpGradient = ctx.createLinearGradient(xStart + ThreadDisplayGap, 0, xStart + blockSize - (2 * ThreadDisplayGap), 0)
                 warpGradient.addColorStop(0, "white")
                 warpGradient.addColorStop(0.2, threadColor)
                 warpGradient.addColorStop(0.8, threadColor)
-                warpGradient.addColorStop(1, "black")
+                warpGradient.addColorStop(1, "gray")
                 this.currentPattern.warpGradients[i] = warpGradient
             }
         }
@@ -415,22 +417,32 @@ class LoomClient {
             }
 
             const yStart = canvas.height - (yOffset + (blockSize * (pickOffset + 1)))
-            var pickGradient = ctx.createLinearGradient(0, yStart, 0, yStart + blockSize)
+            var pickGradient = ctx.createLinearGradient(0, yStart + ThreadDisplayGap, 0, yStart + blockSize - (2 * ThreadDisplayGap))
             const pickColor = this.currentPattern.color_table[this.currentPattern.picks[pickIndex].color]
             pickGradient.addColorStop(0, "white")
             pickGradient.addColorStop(0.2, pickColor)
             pickGradient.addColorStop(0.8, pickColor)
-            pickGradient.addColorStop(1, "black")
+            pickGradient.addColorStop(1, "gray")
 
             for (let end = 0; end < numEndsToShow; end++) {
                 const shaft = this.currentPattern.threading[end]
-                ctx.fillStyle = (this.currentPattern.picks[pickIndex].are_shafts_up[shaft]) ?
-                    this.currentPattern.warpGradients[end] : pickGradient
-                ctx.fillRect(
-                    canvas.width - blockSize * (end + 1),
-                    yStart,
-                    blockSize,
-                    blockSize)
+                if (this.currentPattern.picks[pickIndex].are_shafts_up[shaft]) {
+                    // Display warp end
+                    ctx.fillStyle = this.currentPattern.warpGradients[end]
+                    ctx.fillRect(
+                        canvas.width - blockSize * (end + 1) + ThreadDisplayGap,
+                        yStart,
+                        blockSize - (2 * ThreadDisplayGap),
+                        blockSize)
+                } else {
+                    // Display weft pick
+                    ctx.fillStyle = pickGradient
+                    ctx.fillRect(
+                        canvas.width - blockSize * (end + 1),
+                        yStart + ThreadDisplayGap,
+                        blockSize,
+                        blockSize - (2 * ThreadDisplayGap))
+                }
             }
 
         }
