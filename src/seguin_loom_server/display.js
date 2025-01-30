@@ -3,7 +3,8 @@ const TranslationDict = {}
 
 const MaxFiles = 10
 
-const MinBlockSize = 6
+const MinBlockSize = 11
+const MaxBlockSize = 41
 
 // Keys are the possible values of the LoomConnectionState.state messages
 // Values are entries in ConnectionStateEnum
@@ -60,6 +61,7 @@ class ReducedPattern {
         datadict.picks.forEach((pickdata) => {
             this.picks.push(new Pick(pickdata))
         })
+        this.warpGradients = {}
     }
 }
 
@@ -366,16 +368,32 @@ class LoomClient {
         const numPicks = this.currentPattern.picks.length
         var blockSize = Math.min(
             Math.max(Math.round(canvas.width / numEnds), MinBlockSize),
-            Math.max(Math.round(canvas.height / numPicks), MinBlockSize))
+            Math.max(Math.round(canvas.height / numPicks), MinBlockSize),
+            MaxBlockSize)
         // Make sure blockSize is odd
         if (blockSize % 2 == 0) {
             blockSize -= 1
         }
+
         const numEndsToShow = Math.min(numEnds, Math.floor(canvas.width / blockSize))
         // Make sure numPicksToShow is odd
         var numPicksToShow = Math.min(numPicks, Math.ceil(canvas.height / blockSize))
         if (numPicksToShow % 2 == 0) {
             numPicksToShow += 1
+        }
+
+        if (this.currentPattern.warpGradients[0] == undefined) {
+            // Construct gradients for those warps that will be shown
+            for (let i = 0; i < numEndsToShow; i++) {
+                const threadColor = this.currentPattern.color_table[this.currentPattern.warp_colors[i]]
+                const xStart = canvas.width - blockSize * (i + 1)
+                var warpGradient = ctx.createLinearGradient(xStart, 0, xStart + blockSize, 0)
+                warpGradient.addColorStop(0, "white")
+                warpGradient.addColorStop(0.2, threadColor)
+                warpGradient.addColorStop(0.8, threadColor)
+                warpGradient.addColorStop(1, "black")
+                this.currentPattern.warpGradients[i] = warpGradient
+            }
         }
         var yOffset = Math.floor((canvas.height - (blockSize * numPicksToShow)) / 2)
         var startPick = centerPickNumber - ((numPicksToShow - 1) / 2)
@@ -386,6 +404,7 @@ class LoomClient {
         }
         for (let pickOffset = 0; pickOffset < numPicksToShow; pickOffset++) {
             const pickIndex = startPick + pickOffset - 1
+
             if (pickIndex < 0 || pickIndex >= this.currentPattern.picks.length) {
                 continue
             }
@@ -396,11 +415,17 @@ class LoomClient {
             }
 
             const yStart = canvas.height - (yOffset + (blockSize * (pickOffset + 1)))
+            var pickGradient = ctx.createLinearGradient(0, yStart, 0, yStart + blockSize)
+            const pickColor = this.currentPattern.color_table[this.currentPattern.picks[pickIndex].color]
+            pickGradient.addColorStop(0, "white")
+            pickGradient.addColorStop(0.2, pickColor)
+            pickGradient.addColorStop(0.8, pickColor)
+            pickGradient.addColorStop(1, "black")
+
             for (let end = 0; end < numEndsToShow; end++) {
                 const shaft = this.currentPattern.threading[end]
-                const blockColorInd = (this.currentPattern.picks[pickIndex].are_shafts_up[shaft]) ?
-                    this.currentPattern.warp_colors[end] : this.currentPattern.picks[pickIndex].color
-                ctx.fillStyle = this.currentPattern.color_table[blockColorInd]
+                ctx.fillStyle = (this.currentPattern.picks[pickIndex].are_shafts_up[shaft]) ?
+                    this.currentPattern.warpGradients[end] : pickGradient
                 ctx.fillRect(
                     canvas.width - blockSize * (end + 1),
                     yStart,
