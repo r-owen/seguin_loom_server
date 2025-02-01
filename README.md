@@ -1,4 +1,4 @@
-# Web server that controls a Séguin dobby loom.
+# Web server that controls a Séguin dobby loom
 
 This server is intended to allow you to control your loom from any phone, tablet or other device that has wifi and a web browser.
 
@@ -80,16 +80,13 @@ You are now ready to weave.
       The arrow points in the direction cloth is moving through the loom.
       You can change the weave direction by pressing this button, or by pressing the "UNW" button on the loom's control panel.
 
-* To advance to the next pick (weaving or unweaving, depending on the weave direction):
-  press the loom's pedal or the "PICK" button on the loom's control panel.
-
 * The software will automatically repeat patterns if you weave or unweave beyond the end.
   However, you must advance twice when you reach an end, before the next set of shafts is raised.
   The first advance will lower all shafts, as a signal that you have finished weaving or unweaving one pattern repeat.
   The next advance will show the desired shed.
 
 * To jump to a different pick and/or repeat number is a two-step process:
-  first you request the jump, then you advance to it by pressing the pedal or "PICK" button.
+  first you request the jump, then you advance to it by pressing the loom's pedal or "PICK" button.
   (Two steps are necessary because the loom will not accept an unsolicited command to raise shafts.)
   In detail:
 
