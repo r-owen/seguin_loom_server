@@ -60,9 +60,10 @@ class MockLoom:
         await self.report_direction()
         await self.report_shafts()
 
-    async def close(self) -> None:
+    async def close(self, cancel_read_commands_task=True) -> None:
         self.report_shafts_done_task.cancel()
-        self.read_commands_task.cancel()
+        if cancel_read_commands_task:
+            self.read_commands_task.cancel()
         if self.reply_writer is not None:
             self.reply_writer.close()
             await self.reply_writer.wait_closed()
@@ -101,122 +102,128 @@ class MockLoom:
         )
 
     async def handle_commands_loop(self) -> None:
-        self.report_shafts_done_task.cancel()
-        while self.connected():
-            assert self.command_reader is not None  # make mypy happy
-            cmdbytes = await self.command_reader.readuntil(TERMINATOR)
-            if not cmdbytes:
-                # Connection has closed
-                asyncio.create_task(self.close())
-            cmd = cmdbytes.decode().rstrip()
-            if self.verbose:
-                self.log.info(f"MockLoom: process client command {cmd!r}")
-            if not cmd:
-                continue
-            if cmd[0:1] != "=":
-                self.log.warning(
-                    f"MockLoom: invalid command {cmd!r}: must begin with '='"
-                )
-                continue
-            if len(cmd) < 2:
-                self.log.warning(
-                    f"MockLoom: invalid command {cmd!r}: must be at least 2 characters"
-                )
-                continue
-            cmd_char = cmd[1]
-            cmd_data = cmd[2:]
-            match cmd_char:
-                case "C":
-                    # Specify which shafts to raise as a hex value
-                    try:
-                        self.shaft_word = int(cmd_data, base=16)
-                    except Exception:
-                        self.log.warning(
-                            f"MockLoom: invalid command {cmd!r}: data after =C not a hex value"
-                        )
-                        continue
-                    if self.error_flag:
-                        continue
-                    if not self.pick_wanted:
-                        # Ignore the command unless a pick is wanted
-                        continue
-                    self.shed_fully_closed = False
-                    self.pick_wanted = False
-                    self.report_shafts_done_task.cancel()
-                    if self.verbose:
-                        self.log.info(f"MockLoom: raise shafts {self.shaft_word:08x}")
-                    await self.report_state()
-                    self.report_shafts_done_task = asyncio.create_task(
-                        self.report_shafts_done()
+        try:
+            self.report_shafts_done_task.cancel()
+            while self.connected():
+                assert self.command_reader is not None  # make mypy happy
+                cmdbytes = await self.command_reader.readuntil(TERMINATOR)
+                if not cmdbytes:
+                    # Connection has closed
+                    asyncio.create_task(self.close())
+                cmd = cmdbytes.decode().rstrip()
+                if self.verbose:
+                    self.log.info(f"MockLoom: process client command {cmd!r}")
+                if not cmd:
+                    continue
+                if cmd[0:1] != "=":
+                    self.log.warning(
+                        f"MockLoom: invalid command {cmd!r}: must begin with '='"
                     )
-                case "U":
-                    # Client commands unweave on/off
-                    # (as opposed to the user pushing the button on the loom,
-                    # in which case the loom changes it and reports it
-                    # to the client).
-                    if self.error_flag:
-                        continue
-                    if cmd_data == "0":
-                        self.weave_forward = True
-                        if self.verbose:
-                            self.log.info(
-                                "MockLoom: weave forward, commanded by software"
-                            )
-                    elif cmd_data == "1":
-                        self.weave_forward = False
-                        if self.verbose:
-                            self.log.info(
-                                "MockLoom: weave backwards, commanded by software"
-                            )
-                    else:
-                        self.log.warning(
-                            f"MockLoom: invalid command {cmd!r}: arg nmust be 0 or 1"
-                        )
-                        continue
-                    await self.report_direction()
-                case "V":
-                    if self.verbose:
-                        self.log.info("MockLoom: get version")
-                    await self.reply("=v001")
-                case "Q":
-                    if self.verbose:
-                        self.log.info("MockLoom: get state")
-                    await self.report_state()
-                case "#":
-                    # Out of band command specific to the mock loom.
-                    # Cast to lowercase becase uppercase is default on iOS.
-                    if self.error_flag and cmd_data.lower() not in ("e", "c"):
-                        continue
-                    match cmd_data.lower():
-                        case "c":
-                            if self.verbose:
-                                self.log.info("MockLoom: oob close command")
-                            asyncio.create_task(self.close())
-                            return
-                        case "d":
-                            self.weave_forward = not self.weave_forward
-                            await self.report_direction()
-                            if self.verbose:
-                                self.log.info(
-                                    "MockLoom: oob toggle weave direction: "
-                                    f"{DIRECTION_NAMES[self.weave_forward]}"
-                                )
-                        case "e":
-                            self.error_flag = not self.error_flag
-                            if self.verbose:
-                                self.log.info(
-                                    f"MockLoom: oob toggle loom error flag to {self.error_flag}"
-                                )
-                            await self.report_state()
-                        case "n":
-                            if self.verbose:
-                                self.log.info("MockLoom: oob request next pick")
-                            self.pick_wanted = True
-                            await self.report_state()
-                        case _:
+                    continue
+                if len(cmd) < 2:
+                    self.log.warning(
+                        f"MockLoom: invalid command {cmd!r}: must be at least 2 characters"
+                    )
+                    continue
+                cmd_char = cmd[1]
+                cmd_data = cmd[2:]
+                match cmd_char:
+                    case "C":
+                        # Specify which shafts to raise as a hex value
+                        try:
+                            self.shaft_word = int(cmd_data, base=16)
+                        except Exception:
                             self.log.warning(
-                                f"MockLoom: unrecognized oob command: {cmd_data!r}"
+                                f"MockLoom: invalid command {cmd!r}: data after =C not a hex value"
                             )
+                            continue
+                        if self.error_flag:
+                            continue
+                        if not self.pick_wanted:
+                            # Ignore the command unless a pick is wanted
+                            continue
+                        self.shed_fully_closed = False
+                        self.pick_wanted = False
+                        self.report_shafts_done_task.cancel()
+                        if self.verbose:
+                            self.log.info(
+                                f"MockLoom: raise shafts {self.shaft_word:08x}"
+                            )
+                        await self.report_state()
+                        self.report_shafts_done_task = asyncio.create_task(
+                            self.report_shafts_done()
+                        )
+                    case "U":
+                        # Client commands unweave on/off
+                        # (as opposed to user pushing UNW button on the loom,
+                        # in which case the loom changes it and reports it
+                        # to the client).
+                        if self.error_flag:
+                            continue
+                        if cmd_data == "0":
+                            self.weave_forward = True
+                            if self.verbose:
+                                self.log.info(
+                                    "MockLoom: weave forward, commanded by software"
+                                )
+                        elif cmd_data == "1":
+                            self.weave_forward = False
+                            if self.verbose:
+                                self.log.info(
+                                    "MockLoom: weave backwards, commanded by software"
+                                )
+                        else:
+                            self.log.warning(
+                                f"MockLoom: invalid command {cmd!r}: arg nmust be 0 or 1"
+                            )
+                            continue
+                        await self.report_direction()
+                    case "V":
+                        if self.verbose:
+                            self.log.info("MockLoom: get version")
+                        await self.reply("=v001")
+                    case "Q":
+                        if self.verbose:
+                            self.log.info("MockLoom: get state")
+                        await self.report_state()
+                    case "#":
+                        # Out of band command specific to the mock loom.
+                        # Cast to lowercase becase uppercase is default on iOS.
+                        if self.error_flag and cmd_data.lower() not in ("e", "c"):
+                            continue
+                        match cmd_data.lower():
+                            case "c":
+                                if self.verbose:
+                                    self.log.info("MockLoom: oob close command")
+                                asyncio.create_task(self.close())
+                                return
+                            case "d":
+                                self.weave_forward = not self.weave_forward
+                                await self.report_direction()
+                                if self.verbose:
+                                    self.log.info(
+                                        "MockLoom: oob toggle weave direction: "
+                                        f"{DIRECTION_NAMES[self.weave_forward]}"
+                                    )
+                            case "e":
+                                self.error_flag = not self.error_flag
+                                if self.verbose:
+                                    self.log.info(
+                                        f"MockLoom: oob toggle loom error flag to {self.error_flag}"
+                                    )
+                                await self.report_state()
+                            case "n":
+                                if self.verbose:
+                                    self.log.info("MockLoom: oob request next pick")
+                                self.pick_wanted = True
+                                await self.report_state()
+                            case _:
+                                self.log.warning(
+                                    f"MockLoom: unrecognized oob command: {cmd_data!r}"
+                                )
+        except Exception:
+            self.log.exception("handle_commands_loop failed; giving up")
+            await self.close(cancel_read_commands_task=False)
 
     async def reply(self, reply: str) -> None:
         """Issue the specified reply, which should not be terminated"""
