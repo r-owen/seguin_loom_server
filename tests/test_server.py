@@ -126,6 +126,13 @@ def test_oobcommand() -> None:
         reply = receive_dict(websocket)
         assert reply == dict(type="WeaveDirection", forward=True)
 
+        command_next_pick(
+            websocket=websocket,
+            jump_pending=False,
+            expected_pick_number=expected_pick_number,
+            expected_repeat_number=expected_repeat_number,
+        )
+
         # Toggle error flag on and off
         websocket.send_json(dict(type="oobcommand", command="e"))
         reply = receive_dict(websocket)
