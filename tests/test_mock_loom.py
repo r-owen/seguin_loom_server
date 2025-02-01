@@ -13,12 +13,12 @@ mock_loom.SHAFT_MOTION_DURATION = 0.1
 async def create_loom():
     """Create a MockLoom and read (and check) the initial replies."""
     async with MockLoom(verbose=True) as loom:
+        reader, writer = await loom.open_client_connection()
         for expected_reply in (
             "=s1",
             "=u0",
             "=c00000000",
         ):
-            reader, writer = await loom.open_client_connection()
             async with asyncio.timeout(1):
                 reply = await read_reply(reader)
                 assert expected_reply == reply
