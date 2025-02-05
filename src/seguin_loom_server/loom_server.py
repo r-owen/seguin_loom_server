@@ -53,9 +53,6 @@ class CommandError(Exception):
 class LoomServer:
     """Communicate with the client software and the loom.
 
-    The preferred way to create and run a LoomServer is to call
-    LoomServer.amain(...).
-
     Parameters
     ----------
     serial_port : str
