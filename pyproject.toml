@@ -28,19 +28,6 @@ dev = [
   "base_loom_server[dev] >= 0.2",
 ]
 
-# Needed due to including package data below
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-"seguin_loom_server" = [
-  "py.typed",
-  "display.css",
-  "display.html_template",
-  "display.js",
-  "favicon-32x32.png"
-]
-
 [project.scripts]
 run_seguin_loom = "seguin_loom_server.main:run_seguin_loom"
 
