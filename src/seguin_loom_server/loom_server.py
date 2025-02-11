@@ -6,7 +6,6 @@ import pathlib
 
 from base_loom_server.base_loom_server import BaseLoomServer
 from base_loom_server.client_replies import MessageSeverityEnum, ShaftStateEnum
-from base_loom_server.reduced_pattern import Pick
 
 from .mock_loom import MockLoom
 
@@ -52,9 +51,9 @@ class LoomServer(BaseLoomServer):
             db_path=db_path,
         )
 
-    async def write_shafts_to_loom(self, pick: Pick) -> None:
+    async def write_shafts_to_loom(self, shaft_word: int) -> None:
         """Send a shaft_word to the loom"""
-        await self.write_to_loom(f"=C{pick.shaft_word:08x}")
+        await self.write_to_loom(f"=C{shaft_word:08x}")
 
     async def handle_loom_reply(self, reply_bytes: bytes) -> None:
         """Read and process replies from the loom."""
