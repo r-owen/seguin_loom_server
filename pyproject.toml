@@ -32,7 +32,9 @@ dev = [
 run_seguin_loom = "seguin_loom_server.main:run_seguin_loom"
 
 [project.urls]
-Homepage = "https://github.com/r-owen/seguin_loom_server"
+Homepage = "https://pypi.org/project/seguin-loom-server/"
+Documentation = "https://r-owen.github.io/base_loom_server/"
+Source = "https://github.com/r-owen/seguin_loom_server"
 Issues = "https://github.com/r-owen/seguin_loom_server/issues"
 
 [tool.pytest.ini_options]
