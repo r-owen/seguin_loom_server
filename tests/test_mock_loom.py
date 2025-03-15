@@ -10,9 +10,9 @@ MockLoom.motion_duration = 0.1
 
 
 @contextlib.asynccontextmanager
-async def create_loom():
+async def create_loom(num_shafts: int = 16):
     """Create a MockLoom and read (and check) the initial replies."""
-    async with MockLoom(verbose=True) as loom:
+    async with MockLoom(num_shafts=num_shafts, verbose=True) as loom:
         reader, writer = await loom.open_client_connection()
         for expected_reply in (
             "=u0",

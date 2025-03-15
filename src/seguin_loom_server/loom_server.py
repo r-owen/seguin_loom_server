@@ -15,6 +15,8 @@ class LoomServer(BaseLoomServer):
 
     Parameters
     ----------
+    num_shafts : int
+        The number of shafts the loom has
     serial_port : str
         The name of the serial port, e.g. "/dev/tty0".
         If the name is "mock" then use a mock loom.
@@ -32,17 +34,21 @@ class LoomServer(BaseLoomServer):
         Intended for unit tests, to avoid stomping on the real database.
     """
 
+    mock_loom_type = MockLoom
+    default_name = "seguin"
+
     def __init__(
         self,
+        num_shafts: int,
         serial_port: str,
         translation_dict: dict[str, str],
         reset_db: bool,
         verbose: bool,
-        name: str = "séguin",
+        name: str | None = None,
         db_path: pathlib.Path | None = None,
     ) -> None:
         super().__init__(
-            mock_loom_type=MockLoom,
+            num_shafts=num_shafts,
             serial_port=serial_port,
             translation_dict=translation_dict,
             reset_db=reset_db,
