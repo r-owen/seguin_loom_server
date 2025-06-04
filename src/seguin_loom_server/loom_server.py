@@ -44,7 +44,6 @@ class LoomServer(BaseLoomServer):
         translation_dict: dict[str, str],
         reset_db: bool,
         verbose: bool,
-        name: str | None = None,
         db_path: pathlib.Path | None = None,
     ) -> None:
         super().__init__(
@@ -53,7 +52,6 @@ class LoomServer(BaseLoomServer):
             translation_dict=translation_dict,
             reset_db=reset_db,
             verbose=verbose,
-            name=name,
             db_path=db_path,
         )
 
@@ -91,9 +89,9 @@ class LoomServer(BaseLoomServer):
                 # Weave direction
                 # The loom expects a new pick, as a result
                 if reply_data == "0":
-                    self.weave_forward = True
+                    self.direction_forward = True
                 elif reply_data == "1":
-                    self.weave_forward = False
+                    self.direction_forward = False
                 else:
                     message = (
                         f"invalid loom reply {reply!r}: " "direction must be 0 or 1"
@@ -103,7 +101,7 @@ class LoomServer(BaseLoomServer):
                         message=message, severity=MessageSeverityEnum.WARNING
                     )
                     return
-                await self.report_weave_direction()
+                await self.report_direction()
             case "s":
                 # Loom status (may include a request for the next pick)
                 state_word = int(reply_data, base=16)

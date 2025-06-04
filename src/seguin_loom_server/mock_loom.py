@@ -99,7 +99,7 @@ class MockLoom(BaseMockLoom):
                         f"{self}: invalid command {cmd!r}: arg must be 0 or 1"
                     )
                     return
-                await self.set_weave_forward(weave_forward=cmd_data == "0")
+                await self.set_direction_forward(direction_forward=cmd_data == "0")
             case "V":
                 if self.verbose:
                     self.log.info("MockLoom: get version")
@@ -122,7 +122,7 @@ class MockLoom(BaseMockLoom):
             self.log.info(f"{self}: oob toggle error_flag to: {self.error_flag}")
 
     async def report_direction(self) -> None:
-        await self.write(f"=u{int(not self.weave_forward)}")
+        await self.write(f"=u{int(not self.direction_forward)}")
 
     async def report_motion_state(self) -> None:
         # Assume that shed_fully_closed = not moving
