@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from typing import AsyncIterator
 
 from base_loom_server.mock_streams import StreamReaderType, StreamWriterType
 
@@ -10,7 +11,9 @@ MockLoom.motion_duration = 0.1
 
 
 @contextlib.asynccontextmanager
-async def create_loom(num_shafts: int = 16):
+async def create_loom(
+    num_shafts: int = 16,
+) -> AsyncIterator[tuple[MockLoom, StreamReaderType, StreamWriterType]]:
     """Create a MockLoom and read (and check) the initial replies."""
     async with MockLoom(num_shafts=num_shafts, verbose=True) as loom:
         reader, writer = await loom.open_client_connection()
@@ -21,6 +24,8 @@ async def create_loom(num_shafts: int = 16):
             async with asyncio.timeout(1):
                 reply = await read_reply(reader)
                 assert expected_reply == reply
+        assert loom.writer is not None
+        assert loom.reader is not None
         assert not loom.writer.is_closing()
         assert not loom.reader.at_eof()
         yield loom, reader, writer
@@ -112,5 +117,7 @@ async def test_oob_close_connection() -> None:
         await write_command(writer, "#c")
         async with asyncio.timeout(1):
             await loom.done_task
+        assert loom.writer is not None
+        assert loom.reader is not None
         assert loom.writer.is_closing()
         assert loom.reader.at_eof()

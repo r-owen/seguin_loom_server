@@ -2,10 +2,8 @@ from __future__ import annotations
 
 __all__ = ["LoomServer"]
 
-import pathlib
-
 from base_loom_server.base_loom_server import BaseLoomServer
-from base_loom_server.client_replies import MessageSeverityEnum, ShaftStateEnum
+from base_loom_server.enums import MessageSeverityEnum, ShaftStateEnum
 
 from .mock_loom import MockLoom
 
@@ -20,8 +18,6 @@ class LoomServer(BaseLoomServer):
     serial_port : str
         The name of the serial port, e.g. "/dev/tty0".
         If the name is "mock" then use a mock loom.
-    translation_dict : dict[str, str]
-        Translation dict.
     reset_db : bool
         If True, delete the old database and create a new one.
         A rescue aid, in case the database gets corrupted.
@@ -36,24 +32,6 @@ class LoomServer(BaseLoomServer):
 
     mock_loom_type = MockLoom
     default_name = "seguin"
-
-    def __init__(
-        self,
-        num_shafts: int,
-        serial_port: str,
-        translation_dict: dict[str, str],
-        reset_db: bool,
-        verbose: bool,
-        db_path: pathlib.Path | None = None,
-    ) -> None:
-        super().__init__(
-            num_shafts=num_shafts,
-            serial_port=serial_port,
-            translation_dict=translation_dict,
-            reset_db=reset_db,
-            verbose=verbose,
-            db_path=db_path,
-        )
 
     async def write_shafts_to_loom(self, shaft_word: int) -> None:
         """Send a shaft_word to the loom"""

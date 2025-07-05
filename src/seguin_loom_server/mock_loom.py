@@ -46,8 +46,7 @@ class MockLoom(BaseMockLoom):
 
     terminator = b"\r"
 
-    def __init__(self, num_shafts: int, verbose: bool = True) -> None:
-        super().__init__(num_shafts=num_shafts, verbose=verbose)
+    def __post_init__(self) -> None:
         self.error_flag = False
 
     async def handle_read_bytes(self, read_bytes: bytes) -> None:
