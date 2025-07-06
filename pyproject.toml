@@ -52,4 +52,4 @@ __version__ = "{version}"
 """
 
 [tool.mypy]
-explicit_package_bases = "True"
+exclude_gitignore = "true"
