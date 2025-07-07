@@ -113,7 +113,7 @@ class MockLoom(BaseMockLoom):
             case _:
                 self.log.warning(f"MockLoom: unrecognized command: {cmd!r}")
 
-    async def oob_command_e(self, cmd: str):
+    async def oob_command_e(self, cmd: str) -> None:
         """Toggle error flag"""
         self.error_flag = not self.error_flag
         await self.report_motion_state()
