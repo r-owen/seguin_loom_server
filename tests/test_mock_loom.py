@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from base_loom_server.mock_streams import StreamReaderType, StreamWriterType
 
@@ -38,9 +38,7 @@ async def read_reply(reader: StreamReaderType, timeout: float = 1) -> str:
         return reply_bytes[:-1].decode()
 
 
-async def write_command(
-    writer: StreamWriterType, command: str, timeout: float = 1
-) -> None:
+async def write_command(writer: StreamWriterType, command: str, timeout: float = 1) -> None:
     writer.write(command.encode() + MockLoom.terminator)
     async with asyncio.timeout(timeout):
         await writer.drain()

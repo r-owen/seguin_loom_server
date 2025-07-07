@@ -19,4 +19,5 @@ app_runner = AppRunner(
 
 
 def run_seguin_loom() -> None:
+    """Run the Sequin loom."""
     app_runner.run()

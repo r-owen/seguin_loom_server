@@ -9,38 +9,19 @@ from .mock_loom import MockLoom
 
 
 class LoomServer(BaseLoomServer):
-    """Communicate with the client software and the loom.
-
-    Parameters
-    ----------
-    num_shafts : int
-        The number of shafts the loom has
-    serial_port : str
-        The name of the serial port, e.g. "/dev/tty0".
-        If the name is "mock" then use a mock loom.
-    reset_db : bool
-        If True, delete the old database and create a new one.
-        A rescue aid, in case the database gets corrupted.
-    verbose : bool
-        If True, log diagnostic information.
-    name : str
-        User-assigned loom name.
-    db_path : pathlib.Path
-        Path to pattern database.
-        Intended for unit tests, to avoid stomping on the real database.
-    """
+    """Communicate with the client software and the loom."""
 
     mock_loom_type = MockLoom
     default_name = "seguin"
 
     async def write_shafts_to_loom(self, shaft_word: int) -> None:
-        """Send a shaft_word to the loom"""
+        """Send a shaft_word to the loom."""
         await self.write_to_loom(f"=C{shaft_word:08x}")
 
     async def handle_loom_reply(self, reply_bytes: bytes) -> None:
         """Read and process replies from the loom."""
         reply = reply_bytes.decode().strip()
-        if len(reply) < 2:
+        if len(reply) < 2:  # noqa: PLR2004
             message = f"invalid loom reply {reply!r}: less than 2 chars"
             self.log.warning(f"LoomServer: {message}")
             await self.report_command_problem(
@@ -71,13 +52,9 @@ class LoomServer(BaseLoomServer):
                 elif reply_data == "1":
                     self.direction_forward = False
                 else:
-                    message = (
-                        f"invalid loom reply {reply!r}: " "direction must be 0 or 1"
-                    )
+                    message = f"invalid loom reply {reply!r}: direction must be 0 or 1"
                     self.log.warning(f"LoomServer: {message}")
-                    await self.report_command_problem(
-                        message=message, severity=MessageSeverityEnum.WARNING
-                    )
+                    await self.report_command_problem(message=message, severity=MessageSeverityEnum.WARNING)
                     return
                 await self.report_direction()
             case "s":
