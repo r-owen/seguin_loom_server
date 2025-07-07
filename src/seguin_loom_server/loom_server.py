@@ -85,7 +85,8 @@ class LoomServer(BaseLoomServer):
                 state_word = int(reply_data, base=16)
 
                 # Set and report shaft state
-                old_shaft_state = self.shaft_state  # type: ignore
+                # Note: type:ignore needed when running mypy from pre-commit.
+                old_shaft_state = self.shaft_state  # type: ignore[has-type]
                 if bool(state_word & 0x8):
                     self.shaft_state = ShaftStateEnum.ERROR
                 elif bool(state_word & 0x1):
