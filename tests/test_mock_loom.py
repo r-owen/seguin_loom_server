@@ -19,6 +19,7 @@ async def create_loom(
         reader, writer = await loom.open_client_connection()
         for expected_reply in (
             "=u0",
+            "=c00000000",
             "=s1",
         ):
             async with asyncio.timeout(1):
