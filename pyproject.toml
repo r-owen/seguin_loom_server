@@ -11,6 +11,7 @@ dynamic = ["version"]
 description = "Web server that drives a Séguin dobby loom"
 readme = "README.md"
 dependencies = [
+  # Warning: base_loom_server appears twice
   "base_loom_server >= 0.34",
 ]
 authors = [
@@ -25,7 +26,8 @@ requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = [
-  "base_loom_server[dev] >= 0.6",
+  # Warning: base_loom_server appears twice
+  "base_loom_server[dev] >= 0.34",
 ]
 
 [project.scripts]
